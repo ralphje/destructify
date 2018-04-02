@@ -42,71 +42,70 @@ StandardStructField = _factory("StandardStructField", _prefix="=", bases=(Aligne
 NativeStructField = _factory("NativeStructField", _prefix="@", bases=(AlignedStructField, ))
 
 CharField = _factory("CharField", format="c", ctype="char", bases=(StandardStructField,))
-NativeCharField = _factory("NativeCharField", ctype="char", bases=(CharField, NativeStructField))
+NativeCharField = _factory("NativeCharField", ctype="char", bases=(NativeStructField, CharField))
 
 ByteField = _factory("ByteField", format="b", ctype="int8_t", bases=(StandardStructField,))
-NativeByteField = _factory("SignedByteField", ctype="signed char", bases=(ByteField, NativeStructField))
+NativeByteField = _factory("SignedByteField", ctype="signed char", bases=(NativeStructField, ByteField))
 
 UnsignedByteField = _factory("SignedByteField", format="B", ctype="uint8_t", bases=(StandardStructField,))
 NativeUnsignedByteField = _factory("NativeSignedByteField", ctype="unsigned char",
-                                   bases=(UnsignedByteField, NativeStructField))
+                                   bases=(NativeStructField, UnsignedByteField))
 
 BoolField = _factory("BoolField", format="?", ctype="_Bool", bases=(StandardStructField,))
-NativeBoolField = _factory("NativeBoolField", bases=(BoolField, NativeStructField))
+NativeBoolField = _factory("NativeBoolField", bases=(NativeStructField, BoolField))
 
 ShortField = _factory("ShortField", format="h", ctype="int16_t", bases=(StandardStructField,))
-LEShortField = _factory("LEShortField", bases=(ShortField, LittleEndianStructField))
-BEShortField = _factory("BEShortField", bases=(ShortField, BigEndianStructField))
-NativeShortField = _factory("NativeShortField", ctype="short", bases=(ShortField, NativeStructField))
+LEShortField = _factory("LEShortField", bases=(LittleEndianStructField, ShortField))
+BEShortField = _factory("BEShortField", bases=(BigEndianStructField, ShortField))
+NativeShortField = _factory("NativeShortField", ctype="short", bases=(NativeStructField, ShortField))
 
 UnsignedShortField = _factory("UnsignedShortField", format="H", ctype="uint16_t", bases=(StandardStructField,))
-LEUnsignedShortField = _factory("LEUnsignedShortField", bases=(UnsignedShortField, LittleEndianStructField))
-BEUnsignedShortField = _factory("BEUnsignedShortField", bases=(UnsignedShortField, BigEndianStructField))
+LEUnsignedShortField = _factory("LEUnsignedShortField", bases=(LittleEndianStructField, UnsignedShortField))
+BEUnsignedShortField = _factory("BEUnsignedShortField", bases=(BigEndianStructField, UnsignedShortField))
 NativeUnsignedShortField = _factory("NativeUnsignedShortField", ctype="unsigned short",
-                                    bases=(UnsignedShortField, NativeStructField))
+                                    bases=(NativeStructField, UnsignedShortField))
 
 IntegerField = _factory("IntegerField", format="i", ctype="int32_t", bases=(StandardStructField,))
-LEIntegerField = _factory("LEIntegerField", bases=(IntegerField, LittleEndianStructField))
-BEIntegerField = _factory("BEIntegerField", bases=(IntegerField, BigEndianStructField))
-NativeIntegerField = _factory("NativeIntegerField", ctype="int", bases=(IntegerField, NativeStructField))
+LEIntegerField = _factory("LEIntegerField", bases=(LittleEndianStructField, IntegerField))
+BEIntegerField = _factory("BEIntegerField", bases=(BigEndianStructField, IntegerField))
+NativeIntegerField = _factory("NativeIntegerField", ctype="int", bases=(NativeStructField, IntegerField))
 
 UnsignedIntegerField = _factory("UnsignedIntegerField", format="I", ctype="uint32_t", bases=(StandardStructField,))
-LEUnsignedIntegerField = _factory("LEUnsignedIntegerField", bases=(UnsignedIntegerField, LittleEndianStructField))
-BEUnsignedIntegerField = _factory("BEUnsignedIntegerField", bases=(UnsignedIntegerField, BigEndianStructField))
+LEUnsignedIntegerField = _factory("LEUnsignedIntegerField", bases=(LittleEndianStructField, UnsignedIntegerField))
+BEUnsignedIntegerField = _factory("BEUnsignedIntegerField", bases=(BigEndianStructField, UnsignedIntegerField))
 NativeUnsignedIntegerField = _factory("NativeUnsignedIntegerField", ctype="unsigned int",
-                                      bases=(UnsignedIntegerField, NativeStructField))
+                                      bases=(NativeStructField, UnsignedIntegerField))
 
 NativeLongField = _factory("NativeLongField", format="l", ctype="long", bases=(NativeStructField, ))
 NativeUnsignedLongField = _factory("NativeUnsignedLongField", format="L", ctype="unsigned long",
                                    bases=(NativeStructField, ))
 
 LongField = _factory("LongField", format="q", ctype="int64_t", bases=(StandardStructField,))
-LELongField = _factory("LELongField", bases=(LongField, LittleEndianStructField))
-BELongField = _factory("BELongField", bases=(LongField, BigEndianStructField))
-NativeLongLongField = _factory("NativeLongLongField", ctype="long long", ases=(LongField, NativeStructField))
+LELongField = _factory("LELongField", bases=(LittleEndianStructField, LongField))
+BELongField = _factory("BELongField", bases=(BigEndianStructField, LongField))
+NativeLongLongField = _factory("NativeLongLongField", ctype="long long", ases=(NativeStructField, LongField))
 
 UnsignedLongField = _factory("UnsignedLongField", format="Q", ctype="uint64_t", bases=(StandardStructField,))
-LEUnsignedLongField = _factory("LEUnsignedLongField", bases=(UnsignedLongField, LittleEndianStructField))
-BEUnsignedLongField = _factory("BEUnsignedLongField", bases=(UnsignedLongField, BigEndianStructField))
+LEUnsignedLongField = _factory("LEUnsignedLongField", bases=(LittleEndianStructField, UnsignedLongField))
+BEUnsignedLongField = _factory("BEUnsignedLongField", bases=(BigEndianStructField, UnsignedLongField))
 NativeUnsignedLongLongField = _factory("NativeUnsignedLongLongField", ctype="unsigned long long",
-                                       bases=(UnsignedLongField, NativeStructField))
+                                       bases=(NativeStructField, UnsignedLongField))
 
 HalfPrecisionFloatField = _factory("HalfPrecisionFloatField", format="e", ctype="binary16",
                                    bases=(StandardStructField,))
 LEHalfPrecisionFloatField = _factory("LEHalfPrecisionFloatField",
-                                     bases=(HalfPrecisionFloatField, LittleEndianStructField))
+                                     bases=(LittleEndianStructField, HalfPrecisionFloatField))
 BEHalfPrecisionFloatField = _factory("BEHalfPrecisionFloatField",
-                                     bases=(HalfPrecisionFloatField, BigEndianStructField))
+                                     bases=(BigEndianStructField, HalfPrecisionFloatField))
 NativeHalfPrecisionFloatField = _factory("NativeHalfPrecisionFloatField",
-                                         bases=(HalfPrecisionFloatField, NativeStructField))
+                                         bases=(NativeStructField, HalfPrecisionFloatField))
 
 FloatField = _factory("FloatField", format="f", ctype="float", bases=(StandardStructField,))
-LEFloatField = _factory("LEFloatField", bases=(FloatField, LittleEndianStructField))
-BEFloatField = _factory("BEFloatField", bases=(FloatField, BigEndianStructField))
-NativeFloatField = _factory("NativeFloatField", bases=(FloatField, NativeStructField))
+LEFloatField = _factory("LEFloatField", bases=(LittleEndianStructField, FloatField))
+BEFloatField = _factory("BEFloatField", bases=(BigEndianStructField, FloatField))
+NativeFloatField = _factory("NativeFloatField", bases=(NativeStructField, FloatField))
 
-DoubleField = _factory("FloatField", format="d", ctype="double", bases=(StandardStructField,))
-LEDoubleField = _factory("LEFloatField", bases=(DoubleField, LittleEndianStructField))
-BEDoubleField = _factory("BEFloatField", bases=(DoubleField, BigEndianStructField))
-NativeDoubleField = _factory("NativeFloatField", bases=(DoubleField, NativeStructField))
-
+DoubleField = _factory("DoubleField", format="d", ctype="double", bases=(StandardStructField,))
+LEDoubleField = _factory("LEDoubleField", bases=(LittleEndianStructField, DoubleField))
+BEDoubleField = _factory("BEDoubleField", bases=(BigEndianStructField, DoubleField))
+NativeDoubleField = _factory("NativeDoubleField", bases=(NativeStructField, DoubleField))
