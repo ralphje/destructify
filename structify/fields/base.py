@@ -176,7 +176,7 @@ class StructureField(Field):
             self.default = lambda: self.structure()
 
     def from_stream(self, stream, context=None):
-        return self.structure.from_stream(stream, context)
+        return self.structure.from_stream(stream)
 
     def to_stream(self, stream, value, context=None):
         value = self.get_final_value(value, context)

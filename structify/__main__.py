@@ -20,7 +20,7 @@ print(t2.to_bytes())
 
 
 class TestStructure2(structify.Structure):
-    length = structify.UnsignedByteField(default=0, prepper=lambda s, v: len(s.data))
+    length = structify.UnsignedByteField(default=0, override=lambda s, v: len(s.data))
     data = structify.FixedLengthField(length='length')
 
 
@@ -29,3 +29,21 @@ print(two.length)
 print(two.data)
 two.data = b"asdfasdfasdf"
 print(two.to_bytes())
+
+
+class SubStructure(structify.Structure):
+    length = structify.UnsignedByteField(default=1)
+    numbers = structify.ArrayField(structify.FixedLengthField(length=lambda s: s.length), size='length')
+
+example = SubStructure.from_bytes(b"\x02\x01\x02\x01\x02")
+print(example.numbers)
+example = SubStructure.from_bytes(b"\x01\x01")
+print(example.numbers)
+
+
+class EncapsulatingStructure(structify.Structure):
+    structs = structify.ArrayField(structify.StructureField(SubStructure), size=2)
+
+example = EncapsulatingStructure.from_bytes(b"\x02\x01\x02\x01\x02\x01\x01")
+print(example.structs[0].numbers, example.structs[1].numbers)
+
