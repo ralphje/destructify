@@ -20,13 +20,14 @@ print(t2.to_bytes())
 
 
 class TestStructure2(structify.Structure):
-    length = structify.UnsignedByteField(default=0, override=lambda s, v: len(s.data))
+    length = structify.UnsignedByteField(default=0)
     data = structify.FixedLengthField(length='length')
 
 
 two = TestStructure2.from_bytes(b'\x01ABC')
 print(two.length)
 print(two.data)
+two.length = None
 two.data = b"asdfasdfasdf"
 print(two.to_bytes())
 
@@ -46,4 +47,11 @@ class EncapsulatingStructure(structify.Structure):
 
 example = EncapsulatingStructure.from_bytes(b"\x02\x01\x02\x01\x02\x01\x01")
 print(example.structs[0].numbers, example.structs[1].numbers)
+
+
+class ZeroTerminatedStructure(structify.Structure):
+    zf = structify.TerminatedField()
+
+example = ZeroTerminatedStructure.from_bytes(b"asdfasdfasdf\x00")
+print(example.zf)
 

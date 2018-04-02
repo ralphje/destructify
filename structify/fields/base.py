@@ -104,7 +104,7 @@ class Field:
     def from_stream(self, stream, context=None):
         """Given a stream of bytes object, consumes  a given bytes object to Python representation.
 
-        :param io.IOBase stream: The IO stream to consume from. The current position is set to the total of all
+        :param io.BufferedIOBase stream: The IO stream to consume from. The current position is set to the total of all
             previously parsed values.
         :param FieldContext context: The context of this field.
         :returns: a tuple: the parsed value in its Python representation, and the amount of consumed bytes
@@ -114,7 +114,7 @@ class Field:
     def to_stream(self, stream, value, context=None):
         """Writes a value to the stream, and returns the amount of bytes written
 
-        :param io.IOBase stream: The IO stream to write to.
+        :param io.BufferedIOBase stream: The IO stream to write to.
         :param value: The value to write
         :param FieldContext context: The context of this field.
         :returns: the amount of bytes written
@@ -180,6 +180,33 @@ class FixedLengthField(Field):
         """Method that converts a given bytes object to a Python value. Default implementation just returns the value.
         """
         return value
+
+
+class TerminatedField(Field):
+    def __init__(self, terminator=b'\0', *args, **kwargs):
+        self.terminator = terminator
+        super().__init__(*args, **kwargs)
+
+    def from_stream(self, stream, context=None):
+        length = 0
+        read = b""
+        while True:
+            c = stream.read(1)
+            if not c:
+                raise StreamExhaustedError("Could not parse field %s; did not find terminator %s" %
+                                           (self.name, self.terminator))
+            read += c
+            length += 1
+            if read.endswith(self.terminator):
+                break
+
+        return self.from_bytes(read[:-len(self.terminator)]), length
+
+    def from_bytes(self, value):
+        return value
+
+    def to_bytes(self, value):
+        return value + self.terminator
 
 
 class StructureField(Field):
