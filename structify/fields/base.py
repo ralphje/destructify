@@ -15,13 +15,13 @@ class Field:
 
     _parse_state = None
 
-    def __init__(self, name=None, default=NOT_PROVIDED, prepper=NOT_PROVIDED):
+    def __init__(self, name=None, default=NOT_PROVIDED, override=NOT_PROVIDED):
         self.structure_cls = None
         self.structure = None
 
         self.name = name
         self.default = default
-        self.prepper = prepper
+        self.override = override
 
         self.creation_counter = Field.creation_counter
         Field.creation_counter += 1
@@ -79,6 +79,20 @@ class Field:
             return default_func()
         return default_func(self.structure)
 
+    @property
+    def has_override(self):
+        return self.override is not NOT_PROVIDED
+
+    def get_overridden_value(self, value):
+        if self.has_override:
+            if callable(self.override):
+                default_func = self.override
+            else:
+                default_func = lambda s, v: self.override
+        else:
+            return value
+        return default_func(self.structure, value)
+
     def from_stream(self, stream):
         """Given a stream of bytes object, consumes  a given bytes object to Python representation.
 
@@ -95,23 +109,8 @@ class Field:
         :param value: The value to write
         :returns: the amount of bytes written
         """
-        prepped = self.get_prepped_value(value)
-        bytes = self.to_bytes(prepped)
-        return stream.write(bytes)
-
-    @property
-    def has_prepper(self):
-        return self.prepper is not NOT_PROVIDED
-
-    def get_prepped_value(self, value):
-        if self.has_prepper:
-            if callable(self.prepper):
-                default_func = self.prepper
-            else:
-                default_func = lambda s, v: self.prepper
-        else:
-            return value
-        return default_func(self.structure, value)
+        value = self.get_overridden_value(value)
+        return stream.write(self.to_bytes(value))
 
     def to_bytes(self, value):
         """Method that converts a given Python representation to bytes. Default implementation assumes the value is
@@ -160,3 +159,20 @@ class FixedLengthReadMixin:
 
 class FixedLengthField(FixedLengthReadMixin, Field):
     pass
+
+
+class StructureField(Field):
+    def __init__(self, structure, *args, **kwargs):
+        self.struct_cls = structure
+        super().__init__(*args, **kwargs)
+        if self.default is None:
+            self.default = lambda: self.struct_cls()
+
+    def from_stream(self, stream):
+        return self.struct_cls.from_stream(stream)
+
+    def to_stream(self, stream, value):
+        value = self.get_overridden_value(value)
+        if value is None:
+            value = self.struct_cls()
+        return value.to_stream(stream)

@@ -6,7 +6,7 @@ structures. You simply specify a structure by creating a class as follows::
 
     class ExampleStructure(structify.Structure):
         some_number = structify.BEIntegerField()
-        length = structify.UnsignedByteField(default=0, prepper=lambda s, v: len(s.data))
+        length = structify.UnsignedByteField(default=0, override=lambda s, v: len(s.data))
         data = structify.FixedLengthField(length='length')
 
 Now you can parse your own binary data::
