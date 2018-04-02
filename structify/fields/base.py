@@ -34,7 +34,7 @@ class Field:
     _parse_state = None
 
     def __init__(self, name=None, default=NOT_PROVIDED, override=NOT_PROVIDED):
-        self.structure_cls = None
+        self.structure = None
 
         self.name = name
         self.default = default
@@ -43,11 +43,17 @@ class Field:
         self.creation_counter = Field.creation_counter
         Field.creation_counter += 1
 
+    def initialize(self):
+        """Hook that is called after all fields on a structure are loaded, so some additional multi-field things can
+        be arranged.
+        """
+        return
+
     def contribute_to_class(self, cls, name):
         """Register the field with the model class it belongs to."""
 
         self.name = name
-        self.structure_cls = cls
+        self.structure = cls
 
         cls._meta.add_field(self)
 
@@ -113,7 +119,7 @@ class Field:
         :param FieldContext context: The context of this field.
         :returns: the amount of bytes written
         """
-        value = self.get_final_value(value, context)
+
         return stream.write(self.to_bytes(value))
 
     def to_bytes(self, value):
@@ -151,6 +157,14 @@ class FixedLengthField(Field):
             self.length = length
         super().__init__(*args, **kwargs)
 
+    def initialize(self):
+        """Overrides the content of the length field if possible."""
+
+        if isinstance(self.length, str):
+            related_field = self.structure._meta.get_field_by_name(self.length)
+            if not related_field.has_override:
+                related_field.override = lambda s, v: len(s[self.name]) if v is None else v
+
     def get_length(self, context):
         return _retrieve_property(context, self.length)
 
@@ -170,18 +184,17 @@ class FixedLengthField(Field):
 
 class StructureField(Field):
     def __init__(self, structure, *args, **kwargs):
-        self.structure = structure
+        self.sub_structure = structure
         super().__init__(*args, **kwargs)
         if self.default is None:
-            self.default = lambda: self.structure()
+            self.default = lambda: self.sub_structure()
 
     def from_stream(self, stream, context=None):
-        return self.structure.from_stream(stream)
+        return self.sub_structure.from_stream(stream)
 
     def to_stream(self, stream, value, context=None):
-        value = self.get_final_value(value, context)
         if value is None:
-            value = self.structure()
+            value = self.sub_structure()
         return value.to_stream(stream)
 
 
@@ -209,7 +222,6 @@ class ArrayField(Field):
         return result, total_consumed
 
     def to_stream(self, stream, value, context=None):
-        value = self.get_final_value(value)
         if value is None:
             value = []
 

@@ -29,6 +29,8 @@ class StructureBase(type):
         for obj_name, obj in namespace.items():
             new_class.add_to_class(obj_name, obj)
 
+        new_class._meta.initialize_fields()
+
         return new_class
 
     def add_to_class(cls, name, value):
@@ -68,6 +70,12 @@ class Structure(metaclass=StructureBase):
     def __bytes__(self):
         return self.to_bytes()
 
+    def finalize(self, values):
+        """Hook for hooking into the object just before it will be converted to binary data. This can be used to
+        modify some values of the structure just before it is being written, e.g. for checksums.
+        """
+        return values
+
     @classmethod
     def from_stream(cls, stream):
         context = FieldContext()
@@ -84,9 +92,17 @@ class Structure(metaclass=StructureBase):
 
     def to_stream(self, stream):
         context = FieldContext(structure=self)
+
+        # done in two loops to allow for finalizing
+        values = {}
+        for field in self._meta.fields:
+            values[field.name] = field.get_final_value(getattr(self, field.name), context)
+
+        values = self.finalize(values)
+
         total_written = 0
         for field in self._meta.fields:
-            total_written += field.to_stream(stream, getattr(self, field.name), context)
+            total_written += field.to_stream(stream, values[field.name], context)
 
         return total_written
 

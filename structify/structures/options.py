@@ -37,3 +37,13 @@ class StructureOptions:
 
     def add_field(self, field):
         self.fields.insert(bisect(self.fields, field), field)
+
+    def get_field_by_name(self, name):
+        for field in self.fields:
+            if field.name == name:
+                return field
+        raise KeyError("Field not found")
+
+    def initialize_fields(self):
+        for field in self.fields:
+            field.initialize()
