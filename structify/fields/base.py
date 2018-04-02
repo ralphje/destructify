@@ -8,6 +8,24 @@ class NOT_PROVIDED:
     pass
 
 
+def _retrieve_property(context, var, special_case_str=True):
+    """Retrieves a property:
+
+    * If the property is callable, and has 0 parameters, it is called without arguments
+    * If the property is callable, and has 0 parameters, it is called with argument context
+    * If special_case_str=True and var is a str, context[var] is returned
+    * Otherwise var is returned
+    """
+    if callable(var):
+        if len(inspect.signature(var).parameters) == 0:
+            return var()
+        return var(context)
+    elif special_case_str and isinstance(var, str):
+        return context[var]
+    else:
+        return var
+
+
 @total_ordering
 class Field:
     # These track each time a Field instance is created. Used to retain order.
@@ -17,7 +35,6 @@ class Field:
 
     def __init__(self, name=None, default=NOT_PROVIDED, override=NOT_PROVIDED):
         self.structure_cls = None
-        self.structure = None
 
         self.name = name
         self.default = default
@@ -54,62 +71,49 @@ class Field:
             return '<%s: %s>' % (path, name)
         return '<%s>' % path
 
-    def get_related_field_value(self, name):
-        if self.structure and hasattr(self.structure, name):
-            return getattr(self.structure, name)
-        elif self._parse_state and name in self._parse_state:
-            return self._parse_state[name]
-        else:
-            raise UnknownDependentFieldError("Dependent field %s is not loaded yet, so can't be used." % name)
-
     @property
     def has_default(self):
         return self.default is not NOT_PROVIDED
 
-    def get_default(self):
-        if self.has_default:
-            if callable(self.default):
-                default_func = self.default
-            else:
-                default_func = lambda: self.default
-        else:
-            default_func = lambda: None
-
-        if len(inspect.signature(default_func).parameters) == 0:
-            return default_func()
-        return default_func(self.structure)
+    def get_default(self, context):
+        if not self.has_default:
+            return None
+        return _retrieve_property(context, self.default, special_case_str=False)
 
     @property
     def has_override(self):
         return self.override is not NOT_PROVIDED
 
-    def get_overridden_value(self, value):
-        if self.has_override:
-            if callable(self.override):
-                default_func = self.override
-            else:
-                default_func = lambda s, v: self.override
-        else:
+    def get_overridden_value(self, value, context):
+        if not self.has_override:
             return value
-        return default_func(self.structure, value)
+        elif callable(self.override):
+            return self.override(context, value)
+        else:
+            return self.override
 
-    def from_stream(self, stream):
+    def get_final_value(self, value, context=None):
+        return self.get_overridden_value(value, context)
+
+    def from_stream(self, stream, context=None):
         """Given a stream of bytes object, consumes  a given bytes object to Python representation.
 
         :param io.IOBase stream: The IO stream to consume from. The current position is set to the total of all
             previously parsed values.
+        :param FieldContext context: The context of this field.
         :returns: a tuple: the parsed value in its Python representation, and the amount of consumed bytes
         """
         raise NotImplementedError()
 
-    def to_stream(self, stream, value):
+    def to_stream(self, stream, value, context=None):
         """Writes a value to the stream, and returns the amount of bytes written
 
         :param io.IOBase stream: The IO stream to write to.
         :param value: The value to write
+        :param FieldContext context: The context of this field.
         :returns: the amount of bytes written
         """
-        value = self.get_overridden_value(value)
+        value = self.get_final_value(value, context)
         return stream.write(self.to_bytes(value))
 
     def to_bytes(self, value):
@@ -121,9 +125,25 @@ class Field:
         return value
 
 
-class FixedLengthReadMixin:
-    """Mixin that can be used in conjunction with a :class:`Field` to ease the use of fixed-length fields"""
+class FieldContext:
+    def __init__(self, *, structure=None, parsed_fields=None):
+        self.structure = structure
+        self.parsed_fields = parsed_fields
 
+    def __getitem__(self, name):
+        if self.structure and hasattr(self.structure, name):
+            return getattr(self.structure, name)
+        elif self.parsed_fields and name in self.parsed_fields:
+            return self.parsed_fields[name]
+        else:
+            raise UnknownDependentFieldError("Dependent field %s is not loaded yet, so can't be used." % name)
+
+    def __getattr__(self, name):
+        """Allows you to do context.value instead of context['value']."""
+        return self.__getitem__(name)
+
+
+class FixedLengthField(Field):
     length = 0
 
     def __init__(self, length=NOT_PROVIDED, *args, **kwargs):
@@ -131,20 +151,11 @@ class FixedLengthReadMixin:
             self.length = length
         super().__init__(*args, **kwargs)
 
-    def get_length(self):
-        if callable(self.length):
-            length_func = self.length
-        elif isinstance(self.length, str):
-            length_func = lambda s: self.get_related_field_value(self.length)
-        else:
-            return self.length
+    def get_length(self, context):
+        return _retrieve_property(context, self.length)
 
-        if len(inspect.signature(length_func).parameters) == 0:
-            return length_func()
-        return length_func(self.structure)
-
-    def from_stream(self, stream):
-        length = self.get_length()
+    def from_stream(self, stream, context=None):
+        length = self.get_length(context)
         read = stream.read(length)
         if len(read) < length:
             raise StreamExhaustedError("Could not parse field %s, trying to read %s bytes, but only %s read." %
@@ -157,22 +168,52 @@ class FixedLengthReadMixin:
         return value
 
 
-class FixedLengthField(FixedLengthReadMixin, Field):
-    pass
-
-
 class StructureField(Field):
     def __init__(self, structure, *args, **kwargs):
-        self.struct_cls = structure
+        self.structure = structure
         super().__init__(*args, **kwargs)
         if self.default is None:
-            self.default = lambda: self.struct_cls()
+            self.default = lambda: self.structure()
 
-    def from_stream(self, stream):
-        return self.struct_cls.from_stream(stream)
+    def from_stream(self, stream, context=None):
+        return self.structure.from_stream(stream, context)
 
-    def to_stream(self, stream, value):
-        value = self.get_overridden_value(value)
+    def to_stream(self, stream, value, context=None):
+        value = self.get_final_value(value, context)
         if value is None:
-            value = self.struct_cls()
+            value = self.structure()
         return value.to_stream(stream)
+
+
+class ArrayField(Field):
+    def __init__(self, base_field, size, *args, **kwargs):
+        self.base_field = base_field
+        self.size = size
+        super().__init__(*args, **kwargs)
+
+    def get_size(self, context):
+        return _retrieve_property(context, self.size)
+
+    def contribute_to_class(self, cls, name):
+        super().contribute_to_class(cls, name)
+        self.base_field.name = name
+        self.base_field.structure_cls = cls
+
+    def from_stream(self, stream, context=None):
+        result = []
+        total_consumed = 0
+        for i in range(0, self.get_size(context)):
+            res, consumed = self.base_field.from_stream(stream, context)
+            total_consumed += consumed
+            result.append(res)
+        return result, total_consumed
+
+    def to_stream(self, stream, value, context=None):
+        value = self.get_final_value(value)
+        if value is None:
+            value = []
+
+        total_written = 0
+        for val in value:
+            total_written += self.base_field.to_stream(stream, val, context)
+        return total_written

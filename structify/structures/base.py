@@ -1,6 +1,7 @@
 import inspect
 import io
 
+from structify.fields.base import FieldContext
 from structify.structures.options import StructureOptions
 
 
@@ -45,12 +46,12 @@ class Structure(metaclass=StructureBase):
 
         :param kwargs:
         """
+        context = FieldContext(structure=self)
         for field in self._meta.fields:
-            field.structure = self
             try:
                 val = kwargs.pop(field.name)
             except KeyError:
-                val = field.get_default()
+                val = field.get_default(context)
             setattr(self, field.name, val)
 
         super().__init__()
@@ -69,11 +70,12 @@ class Structure(metaclass=StructureBase):
 
     @classmethod
     def from_stream(cls, stream):
+        context = FieldContext()
         attrs = {}
         total_consumed = 0
         for field in cls._meta.fields:
-            field._parse_state = attrs
-            result, consumed = field.from_stream(stream)
+            context.parsed_fields = attrs
+            result, consumed = field.from_stream(stream, context)
             attrs[field.name] = result
             total_consumed += consumed
             stream.seek(total_consumed)
@@ -81,9 +83,10 @@ class Structure(metaclass=StructureBase):
         return cls(**attrs), total_consumed
 
     def to_stream(self, stream):
+        context = FieldContext(structure=self)
         total_written = 0
         for field in self._meta.fields:
-            total_written += field.to_stream(stream, getattr(self, field.name))
+            total_written += field.to_stream(stream, getattr(self, field.name), context)
 
         return total_written
 
