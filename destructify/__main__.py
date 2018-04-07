@@ -6,12 +6,16 @@ import destructify
 class TestStructure(destructify.Structure):
     field = destructify.BEShortField()
     field2 = destructify.LEShortField(default=lambda s: s.field)
+    field3 = destructify.ShortField(default=lambda s: s.field)
+
+    class Meta:
+        byte_order = 'little'
 
 
-t = TestStructure.from_bytes(b"0123")
+t = TestStructure.from_bytes(b"\x00\x01\x01\x00\x00\x01")
 print(t.field)
 print(t.field2)
-print(repr(b"0123"), repr(t.to_bytes()))
+print(t.field3)
 
 t2 = TestStructure(field=12)
 print(t2.field)
@@ -55,3 +59,12 @@ class ZeroTerminatedStructure(destructify.Structure):
 example = ZeroTerminatedStructure.from_bytes(b"asdfasdfasdf\x00")
 print(example.zf)
 
+
+class AlignedStructure(destructify.Structure):
+    length = destructify.UnsignedByteField(default=1)
+
+    class Meta:
+        byte_order = 'le'
+
+
+print(AlignedStructure._meta.byte_order)

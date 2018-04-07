@@ -1,8 +1,12 @@
-class StructifyError(Exception):
+class DestructifyError(Exception):
     pass
 
 
-class ParseError(StructifyError):
+class DefinitionError(DestructifyError):
+    pass
+
+
+class ParseError(DestructifyError):
     pass
 
 

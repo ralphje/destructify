@@ -1,17 +1,69 @@
 import struct
 
+from destructify.exceptions import DefinitionError
 from . import FixedLengthField, NOT_PROVIDED
+
+
+BYTE_ORDER_MAPPING = {
+    # native
+    '@': '@',
+    'native': '@',
+
+    # standard
+    '=': '=',
+    'std': '=',
+    'standard': '=',
+
+    # little-endian
+    '<': '<',
+    'le': '<',
+    'little': '<',
+    'little-endian': '<',
+
+    # big-endian
+    '>': '>',
+    'be': '>',
+    'big': '>',
+    'big-endian': '>',
+
+    # network-order
+    '!': '>',
+    'network': '>',
+}
 
 
 class StructField(FixedLengthField):
     format = None
+    byte_order = ""
 
-    def __init__(self, format=NOT_PROVIDED, *args, **kwargs):
+    def __init__(self, format=NOT_PROVIDED, byte_order=NOT_PROVIDED, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
         if format is not NOT_PROVIDED:
             self.format = format
-        self._struct = struct.Struct(self.format)
+        if byte_order is not NOT_PROVIDED:
+            self.byte_order = byte_order
+
+        if self.format[0] in "@=<>!":
+            if not self.byte_order:
+                self.byte_order = self.format[0]
+            self.format = self.format[1:]
+
+        self._struct = struct.Struct(self.byte_order + self.format)
         self.length = self._struct.size
+
+    def contribute_to_class(self, cls, name):
+        super().contribute_to_class(cls, name)
+
+        # If byte_order is specified in the meta of the structure, we change our own default byte order (if not set)
+        if self.structure._meta.byte_order and not self.byte_order:
+            try:
+                self.byte_order = BYTE_ORDER_MAPPING[self.structure._meta.byte_order]
+            except KeyError:
+                raise DefinitionError("byte_order %s is invalid" % self.structure._meta.byte_order)
+            else:
+                self._struct = struct.Struct(self.byte_order + self.format)
+                self.length = self._struct.size
 
     def from_bytes(self, value):
         return self._struct.unpack(value)[0]
@@ -26,53 +78,48 @@ def _factory(name, bases=(StructField, ), **kwargs):
     return type(name, bases, kwargs)
 
 
-class AlignedStructField(StructField):
-    _prefix = ""
+LittleEndianStructField = _factory("LittleEndianStructField", byte_order="<", bases=(StructField, ))
+BigEndianStructField = _factory("BigEndianStructField", byte_order=">", bases=(StructField, ))
+StandardStructField = _factory("StandardStructField", byte_order="=", bases=(StructField, ))
+NativeStructField = _factory("NativeStructField", byte_order="@", bases=(StructField, ))
 
-    def __init__(self, *args, **kwargs):
-        if self.format[0] in "@=<>!":
-            self.format = self.format[1:]
-        self.format = self._prefix + self.format
-        super().__init__(*args, **kwargs)
-
-
-LittleEndianStructField = _factory("LittleEndianStructField", _prefix="<", bases=(AlignedStructField, ))
-BigEndianStructField = _factory("BigEndianStructField", _prefix=">", bases=(AlignedStructField, ))
-StandardStructField = _factory("StandardStructField", _prefix="=", bases=(AlignedStructField, ))
-NativeStructField = _factory("NativeStructField", _prefix="@", bases=(AlignedStructField, ))
-
-CharField = _factory("CharField", format="c", ctype="char", bases=(StandardStructField,))
+CharField = _factory("CharField", format="c", ctype="char", bases=(StructField,))
 NativeCharField = _factory("NativeCharField", ctype="char", bases=(NativeStructField, CharField))
 
-ByteField = _factory("ByteField", format="b", ctype="int8_t", bases=(StandardStructField,))
+ByteField = _factory("ByteField", format="b", ctype="int8_t", bases=(StructField,))
 NativeByteField = _factory("SignedByteField", ctype="signed char", bases=(NativeStructField, ByteField))
 
-UnsignedByteField = _factory("SignedByteField", format="B", ctype="uint8_t", bases=(StandardStructField,))
+UnsignedByteField = _factory("UnignedByteField", format="B", ctype="uint8_t", bases=(StructField,))
 NativeUnsignedByteField = _factory("NativeSignedByteField", ctype="unsigned char",
                                    bases=(NativeStructField, UnsignedByteField))
 
-BoolField = _factory("BoolField", format="?", ctype="_Bool", bases=(StandardStructField,))
+BoolField = _factory("BoolField", format="?", ctype="_Bool", bases=(StructField,))
 NativeBoolField = _factory("NativeBoolField", bases=(NativeStructField, BoolField))
 
-ShortField = _factory("ShortField", format="h", ctype="int16_t", bases=(StandardStructField,))
+ShortField = _factory("ShortField", format="h", ctype="int16_t", bases=(StructField,))
 LEShortField = _factory("LEShortField", bases=(LittleEndianStructField, ShortField))
 BEShortField = _factory("BEShortField", bases=(BigEndianStructField, ShortField))
+StandardShortField = _factory("StandardShortField", bases=(StandardStructField, ShortField))
 NativeShortField = _factory("NativeShortField", ctype="short", bases=(NativeStructField, ShortField))
 
-UnsignedShortField = _factory("UnsignedShortField", format="H", ctype="uint16_t", bases=(StandardStructField,))
+UnsignedShortField = _factory("UnsignedShortField", format="H", ctype="uint16_t", bases=(StructField,))
 LEUnsignedShortField = _factory("LEUnsignedShortField", bases=(LittleEndianStructField, UnsignedShortField))
 BEUnsignedShortField = _factory("BEUnsignedShortField", bases=(BigEndianStructField, UnsignedShortField))
+StandardUnsignedShortField = _factory("StandardUnsignedShortField", bases=(StandardStructField, UnsignedShortField))
 NativeUnsignedShortField = _factory("NativeUnsignedShortField", ctype="unsigned short",
                                     bases=(NativeStructField, UnsignedShortField))
 
-IntegerField = _factory("IntegerField", format="i", ctype="int32_t", bases=(StandardStructField,))
+IntegerField = _factory("IntegerField", format="i", ctype="int32_t", bases=(StructField,))
 LEIntegerField = _factory("LEIntegerField", bases=(LittleEndianStructField, IntegerField))
 BEIntegerField = _factory("BEIntegerField", bases=(BigEndianStructField, IntegerField))
+StandardIntegerField = _factory("StandardIntegerField", bases=(StandardStructField, IntegerField))
 NativeIntegerField = _factory("NativeIntegerField", ctype="int", bases=(NativeStructField, IntegerField))
 
-UnsignedIntegerField = _factory("UnsignedIntegerField", format="I", ctype="uint32_t", bases=(StandardStructField,))
+UnsignedIntegerField = _factory("UnsignedIntegerField", format="I", ctype="uint32_t", bases=(StructField,))
 LEUnsignedIntegerField = _factory("LEUnsignedIntegerField", bases=(LittleEndianStructField, UnsignedIntegerField))
 BEUnsignedIntegerField = _factory("BEUnsignedIntegerField", bases=(BigEndianStructField, UnsignedIntegerField))
+StandardUnsignedIntegerField = _factory("StandardUnsignedIntegerField",
+                                        bases=(StandardStructField, UnsignedIntegerField))
 NativeUnsignedIntegerField = _factory("NativeUnsignedIntegerField", ctype="unsigned int",
                                       bases=(NativeStructField, UnsignedIntegerField))
 
@@ -80,32 +127,38 @@ NativeLongField = _factory("NativeLongField", format="l", ctype="long", bases=(N
 NativeUnsignedLongField = _factory("NativeUnsignedLongField", format="L", ctype="unsigned long",
                                    bases=(NativeStructField, ))
 
-LongField = _factory("LongField", format="q", ctype="int64_t", bases=(StandardStructField,))
+LongField = _factory("LongField", format="q", ctype="int64_t", bases=(StructField,))
 LELongField = _factory("LELongField", bases=(LittleEndianStructField, LongField))
 BELongField = _factory("BELongField", bases=(BigEndianStructField, LongField))
+StandardLongField = _factory("StandardLongField", bases=(StandardStructField, LongField))
 NativeLongLongField = _factory("NativeLongLongField", ctype="long long", ases=(NativeStructField, LongField))
 
-UnsignedLongField = _factory("UnsignedLongField", format="Q", ctype="uint64_t", bases=(StandardStructField,))
+UnsignedLongField = _factory("UnsignedLongField", format="Q", ctype="uint64_t", bases=(StructField,))
 LEUnsignedLongField = _factory("LEUnsignedLongField", bases=(LittleEndianStructField, UnsignedLongField))
 BEUnsignedLongField = _factory("BEUnsignedLongField", bases=(BigEndianStructField, UnsignedLongField))
+StandardUnsignedLongField = _factory("StandardUnsignedLongField", bases=(StandardStructField, UnsignedLongField))
 NativeUnsignedLongLongField = _factory("NativeUnsignedLongLongField", ctype="unsigned long long",
                                        bases=(NativeStructField, UnsignedLongField))
 
 HalfPrecisionFloatField = _factory("HalfPrecisionFloatField", format="e", ctype="binary16",
-                                   bases=(StandardStructField,))
+                                   bases=(StructField,))
 LEHalfPrecisionFloatField = _factory("LEHalfPrecisionFloatField",
                                      bases=(LittleEndianStructField, HalfPrecisionFloatField))
 BEHalfPrecisionFloatField = _factory("BEHalfPrecisionFloatField",
                                      bases=(BigEndianStructField, HalfPrecisionFloatField))
+StandardHalfPrecisionFloatField = _factory("StandardHalfPrecisionFloatField",
+                                           bases=(StandardStructField, HalfPrecisionFloatField))
 NativeHalfPrecisionFloatField = _factory("NativeHalfPrecisionFloatField",
                                          bases=(NativeStructField, HalfPrecisionFloatField))
 
-FloatField = _factory("FloatField", format="f", ctype="float", bases=(StandardStructField,))
+FloatField = _factory("FloatField", format="f", ctype="float", bases=(StructField,))
 LEFloatField = _factory("LEFloatField", bases=(LittleEndianStructField, FloatField))
 BEFloatField = _factory("BEFloatField", bases=(BigEndianStructField, FloatField))
+StandardFloatField = _factory("StandardFloatField", bases=(StandardStructField, FloatField))
 NativeFloatField = _factory("NativeFloatField", bases=(NativeStructField, FloatField))
 
-DoubleField = _factory("DoubleField", format="d", ctype="double", bases=(StandardStructField,))
+DoubleField = _factory("DoubleField", format="d", ctype="double", bases=(StructField,))
 LEDoubleField = _factory("LEDoubleField", bases=(LittleEndianStructField, DoubleField))
 BEDoubleField = _factory("BEDoubleField", bases=(BigEndianStructField, DoubleField))
+StandardDoubleField = _factory("StandardDoubleField", bases=(StandardStructField, DoubleField))
 NativeDoubleField = _factory("NativeDoubleField", bases=(NativeStructField, DoubleField))
