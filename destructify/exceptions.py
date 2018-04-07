@@ -6,6 +6,10 @@ class DefinitionError(DestructifyError):
     pass
 
 
+class ImpossibleToCalculateLengthError(DefinitionError):
+    pass
+
+
 class ParseError(DestructifyError):
     pass
 

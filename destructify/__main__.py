@@ -71,3 +71,10 @@ class AlignedStructure(destructify.Structure):
 
 
 print(AlignedStructure.as_cstruct())
+
+
+class ArrayStructure(destructify.Structure):
+    value = destructify.ArrayField(destructify.ShortField(), size=5)
+
+print(ArrayStructure.as_cstruct())
+print(len(ArrayStructure))

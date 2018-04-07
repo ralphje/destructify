@@ -33,6 +33,9 @@ class StructureBase(type):
 
         return new_class
 
+    def __len__(cls):
+        return sum((len(f) for f in cls._meta.fields))
+
     def add_to_class(cls, name, value):
         # We should call the contribute_to_class method only if it's bound
         if not inspect.isclass(value) and hasattr(value, 'contribute_to_class'):

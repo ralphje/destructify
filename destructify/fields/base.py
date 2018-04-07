@@ -1,7 +1,7 @@
 import inspect
 from functools import total_ordering
 
-from destructify.exceptions import StreamExhaustedError, UnknownDependentFieldError
+from destructify.exceptions import StreamExhaustedError, UnknownDependentFieldError, ImpossibleToCalculateLengthError
 
 
 class NOT_PROVIDED:
@@ -42,6 +42,9 @@ class Field:
 
         self.creation_counter = Field.creation_counter
         Field.creation_counter += 1
+
+    def __len__(self):
+        raise ImpossibleToCalculateLengthError()
 
     def initialize(self):
         """Hook that is called after all fields on a structure are loaded, so some additional multi-field things can
@@ -162,6 +165,12 @@ class FixedLengthField(Field):
             self.length = length
         super().__init__(*args, **kwargs)
 
+    def __len__(self):
+        if isinstance(self.length, int):
+            return self.length
+        else:
+            return super().__len__()
+
     @property
     def ctype(self):
         if self._ctype:
@@ -228,6 +237,9 @@ class StructureField(Field):
         if self.default is None:
             self.default = lambda: self.sub_structure()
 
+    def __len__(self):
+        return len(self.sub_structure)
+
     @property
     def ctype(self):
         ctype = self._ctype or self.sub_structure._meta.object_name
@@ -247,6 +259,12 @@ class ArrayField(Field):
         self.base_field = base_field
         self.size = size
         super().__init__(*args, **kwargs)
+
+    def __len__(self):
+        if isinstance(self.size, int):
+            return self.size * len(self.base_field)
+        else:
+            return super().__len__()
 
     def get_size(self, context):
         return _retrieve_property(context, self.size)
