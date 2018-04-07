@@ -40,6 +40,7 @@ class SubStructure(destructify.Structure):
     length = destructify.UnsignedByteField(default=1)
     numbers = destructify.ArrayField(destructify.FixedLengthField(length=lambda s: s.length), size='length')
 
+print(SubStructure.as_cstruct())
 example = SubStructure.from_bytes(b"\x02\x01\x02\x01\x02")
 print(example.numbers)
 example = SubStructure.from_bytes(b"\x01\x01")
@@ -49,6 +50,7 @@ print(example.numbers)
 class EncapsulatingStructure(destructify.Structure):
     structs = destructify.ArrayField(destructify.StructureField(SubStructure), size=2)
 
+print(EncapsulatingStructure.as_cstruct())
 example = EncapsulatingStructure.from_bytes(b"\x02\x01\x02\x01\x02\x01\x01")
 print(example.structs[0].numbers, example.structs[1].numbers)
 
@@ -57,6 +59,7 @@ class ZeroTerminatedStructure(destructify.Structure):
     zf = destructify.TerminatedField()
 
 example = ZeroTerminatedStructure.from_bytes(b"asdfasdfasdf\x00")
+print(ZeroTerminatedStructure.as_cstruct())
 print(example.zf)
 
 
@@ -67,4 +70,4 @@ class AlignedStructure(destructify.Structure):
         byte_order = 'le'
 
 
-print(AlignedStructure._meta.byte_order)
+print(AlignedStructure.as_cstruct())

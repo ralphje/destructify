@@ -31,7 +31,7 @@ class Field:
     # These track each time a Field instance is created. Used to retain order.
     creation_counter = 0
 
-    _parse_state = None
+    _ctype = None
 
     def __init__(self, name=None, default=NOT_PROVIDED, override=NOT_PROVIDED):
         self.structure = None
@@ -98,6 +98,11 @@ class Field:
         else:
             return self.override
 
+    @property
+    def ctype(self):
+        ctype = self._ctype or self.__class__.__name__
+        return "{} {}".format(ctype, self.name)
+
     def get_final_value(self, value, context=None):
         return self.get_overridden_value(value, context)
 
@@ -156,6 +161,13 @@ class FixedLengthField(Field):
         if length is not NOT_PROVIDED:
             self.length = length
         super().__init__(*args, **kwargs)
+
+    @property
+    def ctype(self):
+        if self._ctype:
+            return "{} {}".format(self._ctype, self.name)
+        else:
+            return "{} {}[{}]".format(self.__class__.__name__, self.name, "" if callable(self.length) else self.length)
 
     def initialize(self):
         """Overrides the content of the length field if possible."""
@@ -216,6 +228,11 @@ class StructureField(Field):
         if self.default is None:
             self.default = lambda: self.sub_structure()
 
+    @property
+    def ctype(self):
+        ctype = self._ctype or self.sub_structure._meta.object_name
+        return "{} {}".format(ctype, self.name)
+
     def from_stream(self, stream, context=None):
         return self.sub_structure.from_stream(stream)
 
@@ -233,6 +250,11 @@ class ArrayField(Field):
 
     def get_size(self, context):
         return _retrieve_property(context, self.size)
+
+    @property
+    def ctype(self):
+        ctype = self._ctype or self.base_field.ctype.split(" ")[0]
+        return "{} {}[{}]".format(ctype, self.name, "" if callable(self.size) else self.size)
 
     def contribute_to_class(self, cls, name):
         super().contribute_to_class(cls, name)

@@ -115,3 +115,11 @@ class Structure(metaclass=StructureBase):
         self.to_stream(bytesio)
         return bytesio.getvalue()
 
+    @classmethod
+    def as_cstruct(cls):
+        result = "struct {} {{\n".format(cls._meta.object_name)
+        for field in cls._meta.fields:
+            result += "   " + field.ctype + ";\n"
+        result += "}"
+        return result
+
