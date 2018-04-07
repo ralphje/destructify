@@ -1,8 +1,8 @@
 import inspect
 import io
 
-from structify.fields.base import FieldContext
-from structify.structures.options import StructureOptions
+from destructify.fields.base import FieldContext
+from destructify.structures.options import StructureOptions
 
 
 class StructureBase(type):

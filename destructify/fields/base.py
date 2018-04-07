@@ -1,7 +1,7 @@
 import inspect
 from functools import total_ordering
 
-from structify.exceptions import StreamExhaustedError, UnknownDependentFieldError
+from destructify.exceptions import StreamExhaustedError, UnknownDependentFieldError
 
 
 class NOT_PROVIDED:

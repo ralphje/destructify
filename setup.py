@@ -5,7 +5,7 @@ from setuptools import setup
 
 base_dir = os.path.dirname(__file__)
 about = {}
-with open(os.path.join(base_dir, "structify", "__init__.py")) as f:
+with open(os.path.join(base_dir, "destructify", "__init__.py")) as f:
     exec(f.read(), about)
 
 try:
@@ -15,13 +15,13 @@ except Exception:
 
 
 setup(
-    name='structify',
+    name='destructify',
     version=about['__version__'],
-    packages=['structify',
-              'structify.fields',
-              'structify.structures'],
-    url='https://github.com/ralphje/structify',
-    download_url='https://github.com/ralphje/structify/tarball/v' + about['__version__'],
+    packages=['destructify',
+              'destructify.fields',
+              'destructify.structures'],
+    url='https://github.com/ralphje/destructify',
+    download_url='https://github.com/ralphje/destructify/tarball/v' + about['__version__'],
     license='MIT',
     author='Ralph Broenink',
     author_email='ralph@ralphbroenink.net',
