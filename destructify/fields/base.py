@@ -277,7 +277,6 @@ class ArrayField(Field):
     def contribute_to_class(self, cls, name):
         super().contribute_to_class(cls, name)
         self.base_field.name = name
-        self.base_field.structure_cls = cls
 
     def from_stream(self, stream, context=None):
         result = []
@@ -296,3 +295,32 @@ class ArrayField(Field):
         for val in value:
             total_written += self.base_field.to_stream(stream, val, context)
         return total_written
+
+
+class ConditionalField(Field):
+    def __init__(self, base_field, condition, *args, **kwargs):
+        self.base_field = base_field
+        self.condition = condition
+        super().__init__(*args, **kwargs)
+
+    def get_condition(self, context):
+        return _retrieve_property(context, self.condition)
+
+    @property
+    def ctype(self):
+        ctype = self._ctype or self.base_field.ctype.split(" ")[0]
+        return "{} {} (conditional)".format(ctype, self.name)
+
+    def contribute_to_class(self, cls, name):
+        super().contribute_to_class(cls, name)
+        self.base_field.name = name
+
+    def from_stream(self, stream, context=None):
+        if self.get_condition(context):
+            return self.base_field.from_stream(stream, context)
+        return None, 0
+
+    def to_stream(self, stream, value, context=None):
+        if self.get_condition(context):
+            return self.base_field.to_stream(stream, value, context)
+        return 0

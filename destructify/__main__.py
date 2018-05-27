@@ -78,3 +78,13 @@ class ArrayStructure(destructify.Structure):
 
 print(ArrayStructure.as_cstruct())
 print(len(ArrayStructure))
+
+
+class ConditionalStructure(destructify.Structure):
+    condition = destructify.ByteField()
+    value = destructify.ConditionalField(destructify.ShortField(), condition='condition')
+
+print(ConditionalStructure.from_bytes(b"\0"))
+print(bytes(ConditionalStructure.from_bytes(b"\0")))
+print(ConditionalStructure.from_bytes(b"\x01\0\x01"))
+print(bytes(ConditionalStructure.from_bytes(b"\x01\0\x01")))
