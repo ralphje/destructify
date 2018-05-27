@@ -56,11 +56,11 @@ class StructField(FixedLengthField):
         super().contribute_to_class(cls, name)
 
         # If byte_order is specified in the meta of the structure, we change our own default byte order (if not set)
-        if self.structure._meta.byte_order and not self.byte_order:
+        if self.bound_structure._meta.byte_order and not self.byte_order:
             try:
-                self.byte_order = BYTE_ORDER_MAPPING[self.structure._meta.byte_order]
+                self.byte_order = BYTE_ORDER_MAPPING[self.bound_structure._meta.byte_order]
             except KeyError:
-                raise DefinitionError("byte_order %s is invalid" % self.structure._meta.byte_order)
+                raise DefinitionError("byte_order %s is invalid" % self.bound_structure._meta.byte_order)
             else:
                 self._struct = struct.Struct(self.byte_order + self.format)
                 self.length = self._struct.size

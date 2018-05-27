@@ -31,7 +31,7 @@ class FixedLengthField(Field):
         """Overrides the content of the length field if possible."""
 
         if isinstance(self.length, str):
-            related_field = self.structure._meta.get_field_by_name(self.length)
+            related_field = self.bound_structure._meta.get_field_by_name(self.length)
             if not related_field.has_override:
                 related_field.override = lambda s, v: len(s[self.name]) if v is None else v
 
@@ -74,7 +74,7 @@ class BitField(FixedLengthField):
         """Overrides the content of the length field if possible."""
 
         if isinstance(self.length, str):
-            related_field = self.structure._meta.get_field_by_name(self.length)
+            related_field = self.bound_structure._meta.get_field_by_name(self.length)
             if not related_field.has_override:
                 related_field.override = lambda s, v: s[self.name].bit_length() if v is None else v
 
@@ -117,28 +117,30 @@ class TerminatedField(Field):
 
 
 class StructureField(Field):
-    """A field that contains a :class:`Structure` in itself."""
+    """A field that contains a :class:`Structure` in itself. If a default is not defined on the field, the default
+    is an empty structure.
+    """
 
     def __init__(self, structure, *args, **kwargs):
-        self.sub_structure = structure
+        self.structure = structure
         super().__init__(*args, **kwargs)
         if self.default is None:
-            self.default = lambda: self.sub_structure()
+            self.default = lambda: self.structure()
 
     def __len__(self):
-        return len(self.sub_structure)
+        return len(self.structure)
 
     @property
     def ctype(self):
-        ctype = self._ctype or self.sub_structure._meta.object_name
+        ctype = self._ctype or self.structure._meta.object_name
         return "{} {}".format(ctype, self.name)
 
     def from_stream(self, stream, context=None):
-        return self.sub_structure.from_stream(stream)
+        return self.structure.from_stream(stream)
 
     def to_stream(self, stream, value, context=None):
         if value is None:
-            value = self.sub_structure()
+            value = self.structure()
         return value.to_stream(stream)
 
 
@@ -157,6 +159,8 @@ class BaseFieldMixin(object):
 
 
 class ArrayField(BaseFieldMixin, Field):
+    """A field that repeats the provided base field multiple times."""
+
     def __init__(self, base_field, size, *args, **kwargs):
         self.size = size
         super().__init__(base_field, *args, **kwargs)
@@ -195,6 +199,11 @@ class ArrayField(BaseFieldMixin, Field):
 
 
 class ConditionalField(BaseFieldMixin, Field):
+    """A field that may or may not be present. When the :attr:`condition` evaluates to true, the :attr:`base_field`
+    field is parsed, otherwise the field is :const:`None`.
+
+    """
+
     def __init__(self, base_field, condition, *args, **kwargs):
         self.condition = condition
         super().__init__(base_field, *args, **kwargs)
@@ -219,6 +228,9 @@ class ConditionalField(BaseFieldMixin, Field):
 
 
 class EnumField(BaseFieldMixin, Field):
+    """A field that takes the value as evaluated by the :attr:`base_field` and parses it as the provided :attr:`enum`.
+    """
+
     def __init__(self, base_field, enum, *args, **kwargs):
         self.enum = enum
         super().__init__(base_field, *args, **kwargs)

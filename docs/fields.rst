@@ -106,8 +106,8 @@ Base field
 
    .. automethod:: Field.to_bytes
 
-Common fields
-=============
+Basic fields
+============
 .. autoclass:: FixedLengthField
 
    .. attribute:: FixedLengthField.length
@@ -193,10 +193,100 @@ Common fields
        >>> TerminatedStructure.from_bytes(b"hello\0world\r\n")
        <TerminatedStructure: TerminatedStructure(foo=b'hello', bar=b'world')>
 
+Common fields
+=============
+
 .. autoclass:: StructureField
+
+   .. attribute:: StructureField.structure
+
+      The :class:`Structure` class that is initialized for the sub-structure.
+
+   Example usage::
+
+       >>> class Sub(Structure):
+       ...     foo = FixedLengthField(length=11)
+       ...
+       >>> class Encapsulating(Structure):
+       ...     bar = StructureField(Sub)
+       ...
+       >>> s = Encapsulating.from_bytes(b"hello world")
+       >>> s
+       <Encapsulating: Encapsulating(bar=<Sub: Sub(foo=b'hello world')>)>
+       >>> s.bar
+       <Sub: Sub(foo=b'hello world')>
+       >>> s.bar.foo
+       b'hello world'
+
 
 .. autoclass:: ArrayField
 
+   .. attribute:: ArrayField.base_field
+
+      The field that is to be repeated.
+
+   .. attribute:: ArrayField.size
+
+      This specifies the amount of repetitions of the base field.
+
+      You can set it to one of the following:
+
+      * A callable with zero arguments
+      * A callable taking a :class:`ParsingContext` object
+      * A string that represents the field name that contains the size
+      * An integer
+
+      The size given a context is obtained by calling ``ArrayField.get_size(value, context)``.
+
+   Example usage::
+
+       >>> class ArrayStructure(Structure):
+       ...     count = UnsignedByteField()
+       ...     foo = ArrayField(TerminatedField(terminator=b'\0'), size='count')
+       ...
+       >>> s = ArrayStructure.from_bytes(b"\x02hello\0world\0")
+       >>> s.foo
+       [b'hello', b'world']
+
 .. autoclass:: ConditionalField
 
+   .. attribute:: ConditionalField.base_field
+
+      The field that is conditionally present.
+
+   .. attribute:: ConditionalField.condition
+
+      This specifies the condition on whether the field is present.
+
+      You can set it to one of the following:
+
+      * A callable with zero arguments
+      * A callable taking a :class:`ParsingContext` object
+      * A string that represents the field name that evaluates to true or false. Note that ``b'\0'`` evaluates to true.
+      * A value that is to be evaluated
+
+      The condition given a context is obtained by calling ``ConditionalField.get_condition(value, context)``.
+
 .. autoclass:: EnumField
+
+   .. attribute:: EnumField.base_field
+
+      The field that returns the value that is provided to the :class:`enum.Enum`
+
+   .. attribute:: EnumField.enum
+
+      The :class:`enum.Enum` class.
+
+   You can also use an :class:`EnumField` to handle flags::
+
+       >>> class Permissions(enum.IntFlag):
+       ...     R = 4
+       ...     W = 2
+       ...     X = 1
+       ...
+       >>> class EnumStructure(Structure):
+       ...     perms = EnumField(UnsignedByteField(), enum=Permissions)
+       ...
+       >>> EnumStructure.from_bytes(b"\x05")
+       <EnumStructure: EnumStructure(perms=<Permissions.R|X: 5>)>
+

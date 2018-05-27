@@ -37,7 +37,7 @@ class Field:
     _ctype = None
 
     def __init__(self, name=None, default=NOT_PROVIDED, override=NOT_PROVIDED):
-        self.structure = None
+        self.bound_structure = None
 
         self.name = name
         self.default = default
@@ -63,7 +63,7 @@ class Field:
         """Register the field with the model class it belongs to."""
 
         self.name = name
-        self.structure = cls
+        self.bound_structure = cls
 
         cls._meta.add_field(self)
 
