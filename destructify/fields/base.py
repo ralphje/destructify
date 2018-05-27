@@ -29,6 +29,8 @@ def _retrieve_property(context, var, special_case_str=True):
 
 @total_ordering
 class Field:
+    """A basic field is incapable of parsing or writing anything, as it is intended to be subclassed."""
+
     # These track each time a Field instance is created. Used to retain order.
     creation_counter = 0
 
@@ -45,6 +47,10 @@ class Field:
         Field.creation_counter += 1
 
     def __len__(self):
+        """You can call :const:`len` on a field to retrieve its byte length. It can either return a value that makes
+        sense, or it will raise an :exc:`ImpossibleToCalculateLengthError` when the length depends on something that
+        is not known yet.
+        """
         raise ImpossibleToCalculateLengthError()
 
     def initialize(self):
@@ -104,24 +110,45 @@ class Field:
 
     @property
     def ctype(self):
+        """A friendly description of the field in the form of a C-style struct definition."""
+
         ctype = self._ctype or self.__class__.__name__
         return "{} {}".format(ctype, self.name)
 
     def get_final_value(self, value, context=None):
+        """Returns the final value given a context. This is used by :meth:`Structure.to_stream` to retrieve the
+        value that is to be written to the stream. It is called before any modifications to the value can be made by
+        the :class:`Field`.
+
+        :param value: The value to retrieve the final value for.
+        :param ParsingContext context: The context of this field.
+        """
+
         return self.get_overridden_value(value, context)
 
     def from_stream(self, stream, context=None):
-        """Given a stream of bytes object, consumes  a given bytes object to Python representation.
+        """Given a stream of bytes object, consumes a given bytes object to Python representation.
 
-        :param io.BufferedIOBase stream: The IO stream to consume from. The current position is set to the total of all
-            previously parsed values.
+        The default implementation is to raise a :exc:`NotImplementedError`
+
+        :param io.BufferedIOBase stream: The IO stream to consume from. The current position should already be set to
+            the total of all previously parsed values.
         :param ParsingContext context: The context of this field.
         :returns: a tuple: the parsed value in its Python representation, and the amount of consumed bytes
         """
         raise NotImplementedError()
 
+    def from_bytes(self, value):
+        """Method that converts a given bytes object to a Python value.
+
+        Default implementation just returns the value. Note that it is not called by default.
+        """
+        return value
+
     def to_stream(self, stream, value, context=None):
-        """Writes a value to the stream, and returns the amount of bytes written
+        """Writes a value to the stream, and returns the amount of bytes written.
+
+        The default implementation is to call :meth:`to_bytes` on value before writing it to the stream.
 
         :param io.BufferedIOBase stream: The IO stream to write to.
         :param value: The value to write
@@ -132,21 +159,30 @@ class Field:
         return context.write_stream(stream, self.to_bytes(value))
 
     def to_bytes(self, value):
-        """Method that converts a given Python representation to bytes. Default implementation assumes the value is
-        already bytes.
+        """Method that converts a given Python representation to bytes.
 
-        This value is a hook for :meth:`to_stream`.
+        Default implementation assumes the value is already bytes.
+
+        This method is a hook for :meth:`to_stream`.
         """
         return value
 
 
 class ParsingContext:
+    """A context that is passed around to different methods during reading from and writing to a stream. It is used
+    to contain context for the field that is being parsed.
+    """
+
     def __init__(self, *, structure=None, parsed_fields=None):
         self.structure = structure
         self.parsed_fields = parsed_fields
         self.bits_remaining = None
 
     def __getitem__(self, name):
+        """Retrieves the named item from the structure (if known) or (if unknown) from the dict of already parsed
+        fields.
+        """
+
         if self.structure and hasattr(self.structure, name):
             return getattr(self.structure, name)
         elif self.parsed_fields and name in self.parsed_fields:
@@ -159,7 +195,8 @@ class ParsingContext:
         return self.__getitem__(name)
 
     def read_stream(self, stream, size=-1):
-        """Alias for stream.read(size), but allows that to be hooked by the context.
+        """Alias for ``stream.read(size)``, but raises an :exc:`MisalignedFieldError` when bits have still not been
+        parsed (used by :class:`BitField`)
 
         :return: the bytes read
         """
@@ -170,12 +207,31 @@ class ParsingContext:
         return stream.read(size)
 
     def write_stream(self, stream, value):
+        """Alias for ``stream.write(value)``, but also ensures that remaining bits (used by :class:`BitField`) are
+        written to the stream
+
+        :return: the amount of bytes written
+        """
+
         return self._write_remaining_bits(stream) + stream.write(value)
 
     def finalize_stream(self, stream):
+        """Called to finalize writing to a stream, ensuring that remaining bits (used by :class:`BitField`) are
+        written to the stream
+
+        :return: the amount of bytes written
+        """
+
         return self._write_remaining_bits(stream)
 
     def read_stream_bits(self, stream, bit_count):
+        """Reads the given amount of bits from the stream. It does not necessarily hit the stream, as it is possible
+        that the required amount of bits has already been read in a previous call.
+
+        :return: a tuple of the integer representing the read bits, and the amount of bytes read from the stream
+            (which may be zero)
+        """
+
         result = []
         read_count = 0
         while len(result) < bit_count:
@@ -196,6 +252,16 @@ class ParsingContext:
         return sum((result[i] << (len(result) - i - 1) for i in range(len(result)))), read_count
 
     def write_stream_bits(self, stream, value, bit_count, *, force_write=False):
+        """Writes the value with the given amount of bits to the stream. By default, it does not hit the stream, as
+        all bit writes are bundled.
+
+        :param stream: The stream to write to
+        :param value: The value to write to the stream
+        :param bit_count: The amount of bits from the value to write to the stream
+        :param bool force_write: If True, all bits are written to the stream, including the previously cached bits.
+        :return: the amount of bytes written (always zero unless force_write is True)
+        """
+
         if not self.bits_remaining:
             self.bits_remaining = []
         self.bits_remaining.extend([value >> i & 1 for i in range(bit_count - 1, -1, -1)])

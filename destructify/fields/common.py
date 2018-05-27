@@ -3,7 +3,9 @@ from .base import _retrieve_property
 
 
 class FixedLengthField(Field):
-    """Field with a fixed length. Returns the value as bytes."""
+    """Field with a fixed length. It reads exactly the amount of bytes as specified in the length attribute, and
+    returns the read bytes directly. Writing is unaffected by the length property.
+    """
 
     length = 0
 
@@ -44,16 +46,15 @@ class FixedLengthField(Field):
                                        (self.name, length, len(read)))
         return self.from_bytes(read), length
 
-    def from_bytes(self, value):
-        """Method that converts a given bytes object to a Python value. Default implementation just returns the value.
-        """
-        return value
-
 
 class BitField(FixedLengthField):
-    def __init__(self, realign=False, *args, **kwargs):
+    """A subclass of :class:`FixedLengthField`, but does not use bytes as the basis, but bits. The field writes and
+    reads integers.
+    """
+
+    def __init__(self, length, realign=False, *args, **kwargs):
         self.realign = realign
-        super().__init__(*args, **kwargs)
+        super().__init__(length, *args, **kwargs)
 
     def __len__(self):
         if isinstance(self.length, int):
@@ -88,6 +89,10 @@ class BitField(FixedLengthField):
 
 
 class TerminatedField(Field):
+    """A field that reads until the :attr:`TerminatedField.terminator` is hit. It directly returns the bytes as read,
+     without the terminator.
+    """
+
     def __init__(self, terminator=b'\0', *args, **kwargs):
         self.terminator = terminator
         super().__init__(*args, **kwargs)
@@ -107,14 +112,13 @@ class TerminatedField(Field):
 
         return self.from_bytes(read[:-len(self.terminator)]), length
 
-    def from_bytes(self, value):
-        return value
-
     def to_bytes(self, value):
         return value + self.terminator
 
 
 class StructureField(Field):
+    """A field that contains a :class:`Structure` in itself."""
+
     def __init__(self, structure, *args, **kwargs):
         self.sub_structure = structure
         super().__init__(*args, **kwargs)
