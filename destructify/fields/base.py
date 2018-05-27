@@ -1,7 +1,8 @@
 import inspect
 from functools import total_ordering
 
-from destructify.exceptions import StreamExhaustedError, UnknownDependentFieldError, ImpossibleToCalculateLengthError
+from destructify.exceptions import StreamExhaustedError, UnknownDependentFieldError, ImpossibleToCalculateLengthError, \
+    MisalignedFieldError
 
 
 class NOT_PROVIDED:
@@ -114,7 +115,7 @@ class Field:
 
         :param io.BufferedIOBase stream: The IO stream to consume from. The current position is set to the total of all
             previously parsed values.
-        :param FieldContext context: The context of this field.
+        :param ParsingContext context: The context of this field.
         :returns: a tuple: the parsed value in its Python representation, and the amount of consumed bytes
         """
         raise NotImplementedError()
@@ -124,11 +125,11 @@ class Field:
 
         :param io.BufferedIOBase stream: The IO stream to write to.
         :param value: The value to write
-        :param FieldContext context: The context of this field.
+        :param ParsingContext context: The context of this field.
         :returns: the amount of bytes written
         """
 
-        return stream.write(self.to_bytes(value))
+        return context.write_stream(stream, self.to_bytes(value))
 
     def to_bytes(self, value):
         """Method that converts a given Python representation to bytes. Default implementation assumes the value is
@@ -139,10 +140,11 @@ class Field:
         return value
 
 
-class FieldContext:
+class ParsingContext:
     def __init__(self, *, structure=None, parsed_fields=None):
         self.structure = structure
         self.parsed_fields = parsed_fields
+        self.bits_remaining = None
 
     def __getitem__(self, name):
         if self.structure and hasattr(self.structure, name):
@@ -155,3 +157,62 @@ class FieldContext:
     def __getattr__(self, name):
         """Allows you to do context.value instead of context['value']."""
         return self.__getitem__(name)
+
+    def read_stream(self, stream, size=-1):
+        """Alias for stream.read(size), but allows that to be hooked by the context.
+
+        :return: the bytes read
+        """
+        if self.bits_remaining:
+            raise MisalignedFieldError("A field following a BitField is misaligned. %s bits are still in the buffer"
+                                       % len(self.bits_remaining))
+
+        return stream.read(size)
+
+    def write_stream(self, stream, value):
+        return self._write_remaining_bits(stream) + stream.write(value)
+
+    def finalize_stream(self, stream):
+        return self._write_remaining_bits(stream)
+
+    def read_stream_bits(self, stream, bit_count):
+        result = []
+        read_count = 0
+        while len(result) < bit_count:
+            # fill the bits_remaining as necessary
+            if not self.bits_remaining:
+                read = stream.read(1)
+                read_count += 1
+                if not read:
+                    raise StreamExhaustedError("Could not parse bitfield, trying to read 1 byte")
+                # trick to split each bit in a separate element
+                self.bits_remaining = [read[0] >> i & 1 for i in range(7, -1, -1)]
+
+            rem_size = bit_count - len(result)
+            result.extend(self.bits_remaining[:rem_size])
+            self.bits_remaining = self.bits_remaining[rem_size:]
+
+        # this converts it back to a single integer
+        return sum((result[i] << (len(result) - i - 1) for i in range(len(result)))), read_count
+
+    def write_stream_bits(self, stream, value, bit_count, *, force_write=False):
+        if not self.bits_remaining:
+            self.bits_remaining = []
+        self.bits_remaining.extend([value >> i & 1 for i in range(bit_count - 1, -1, -1)])
+
+        if force_write:
+            return self._write_remaining_bits(stream)
+        return 0
+
+    def _write_remaining_bits(self, stream):
+        written = 0
+        if self.bits_remaining:
+            # we align to 8 bits
+            self.bits_remaining.extend([0] * (8 - (len(self.bits_remaining) % 8)))
+
+            number = sum((self.bits_remaining[i] << (len(self.bits_remaining) - i - 1)
+                          for i in range(len(self.bits_remaining))))
+            written = stream.write(number.to_bytes(len(self.bits_remaining) // 8, 'big'))
+            self.bits_remaining = None
+
+        return written

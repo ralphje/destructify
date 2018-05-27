@@ -1,7 +1,7 @@
 import inspect
 import io
 
-from destructify.fields.base import FieldContext
+from destructify.fields.base import ParsingContext
 from destructify.structures.options import StructureOptions
 
 
@@ -51,7 +51,7 @@ class Structure(metaclass=StructureBase):
 
         :param kwargs:
         """
-        context = FieldContext(structure=self)
+        context = ParsingContext(structure=self)
         for field in self._meta.fields:
             try:
                 val = kwargs.pop(field.name)
@@ -81,7 +81,7 @@ class Structure(metaclass=StructureBase):
 
     @classmethod
     def from_stream(cls, stream):
-        context = FieldContext()
+        context = ParsingContext()
         attrs = {}
         total_consumed = 0
         for field in cls._meta.fields:
@@ -94,7 +94,7 @@ class Structure(metaclass=StructureBase):
         return cls(**attrs), total_consumed
 
     def to_stream(self, stream):
-        context = FieldContext(structure=self)
+        context = ParsingContext(structure=self)
 
         # done in two loops to allow for finalizing
         values = {}
@@ -106,6 +106,8 @@ class Structure(metaclass=StructureBase):
         total_written = 0
         for field in self._meta.fields:
             total_written += field.to_stream(stream, values[field.name], context)
+
+        total_written += context.finalize_stream(stream)
 
         return total_written
 

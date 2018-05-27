@@ -104,3 +104,18 @@ class EnumStructure(destructify.Structure):
 print(EnumStructure.from_bytes(b"\0"))
 print(EnumStructure.from_bytes(b"\x05"))
 print(bytes(EnumStructure(flag=Flags.X | Flags.R | Flags.W)))
+
+
+class BitFieldStructure(destructify.Structure):
+    bit = destructify.BitField(length=3)
+    bit2 = destructify.BitField(length=8, realign=True)
+    f = destructify.UnsignedByteField()
+    bit3 = destructify.BitField(length=32)
+
+bf = BitFieldStructure.from_bytes(b"\xff\x00\xff\xff\x00\xff\x00")
+print(bf, bin(bf.bit), bin(bf.bit2), bin(bf.bit3))
+print(bytes(bf))
+bf = BitFieldStructure.from_bytes(bytes(bf))
+print(bf, bin(bf.bit), bin(bf.bit2), bin(bf.bit3))
+print(bytes(bf))
+

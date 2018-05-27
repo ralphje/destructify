@@ -38,7 +38,7 @@ class FixedLengthField(Field):
 
     def from_stream(self, stream, context=None):
         length = self.get_length(context)
-        read = stream.read(length)
+        read = context.read_stream(stream, length)
         if len(read) < length:
             raise StreamExhaustedError("Could not parse field %s, trying to read %s bytes, but only %s read." %
                                        (self.name, length, len(read)))
@@ -50,6 +50,43 @@ class FixedLengthField(Field):
         return value
 
 
+class BitField(FixedLengthField):
+    def __init__(self, realign=False, *args, **kwargs):
+        self.realign = realign
+        super().__init__(*args, **kwargs)
+
+    def __len__(self):
+        if isinstance(self.length, int):
+            return self.length / 8
+        else:
+            return super().__len__()
+
+    @property
+    def ctype(self):
+        if self._ctype:
+            return "{} {}".format(self._ctype, self.name)
+        else:
+            return "{} {}[{}]".format(self.__class__.__name__, self.name,
+                                      "" if callable(self.length) else "{} bits".format(self.length))
+
+    def initialize(self):
+        """Overrides the content of the length field if possible."""
+
+        if isinstance(self.length, str):
+            related_field = self.structure._meta.get_field_by_name(self.length)
+            if not related_field.has_override:
+                related_field.override = lambda s, v: s[self.name].bit_length() if v is None else v
+
+    def from_stream(self, stream, context=None):
+        result = context.read_stream_bits(stream, self.get_length(context))
+        if self.realign:
+            context.bits_remaining = None
+        return result
+
+    def to_stream(self, stream, value, context=None):
+        return context.write_stream_bits(stream, value, self.get_length(context), force_write=self.realign)
+
+
 class TerminatedField(Field):
     def __init__(self, terminator=b'\0', *args, **kwargs):
         self.terminator = terminator
@@ -59,7 +96,7 @@ class TerminatedField(Field):
         length = 0
         read = b""
         while True:
-            c = stream.read(1)
+            c = context.read_stream(stream, 1)
             if not c:
                 raise StreamExhaustedError("Could not parse field %s; did not find terminator %s" %
                                            (self.name, self.terminator))
@@ -190,3 +227,4 @@ class EnumField(BaseFieldMixin, Field):
         if hasattr(value, 'value'):
             value = value.value
         return self.base_field.to_stream(stream, value, context)
+
