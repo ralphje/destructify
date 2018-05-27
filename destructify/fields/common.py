@@ -3,6 +3,8 @@ from .base import _retrieve_property
 
 
 class FixedLengthField(Field):
+    """Field with a fixed length. Returns the value as bytes."""
+
     length = 0
 
     def __init__(self, length=NOT_PROVIDED, *args, **kwargs):
@@ -99,11 +101,24 @@ class StructureField(Field):
         return value.to_stream(stream)
 
 
-class ArrayField(Field):
-    def __init__(self, base_field, size, *args, **kwargs):
+class BaseFieldMixin(object):
+    def __init__(self, base_field, *args, **kwargs):
         self.base_field = base_field
-        self.size = size
         super().__init__(*args, **kwargs)
+
+    def contribute_to_class(self, cls, name):
+        super().contribute_to_class(cls, name)
+        self.base_field.name = name
+
+    @property
+    def ctype(self):
+        return self._ctype or self.base_field.ctype
+
+
+class ArrayField(BaseFieldMixin, Field):
+    def __init__(self, base_field, size, *args, **kwargs):
+        self.size = size
+        super().__init__(base_field, *args, **kwargs)
 
     def __len__(self):
         if isinstance(self.size, int):
@@ -118,10 +133,6 @@ class ArrayField(Field):
     def ctype(self):
         ctype = self._ctype or self.base_field.ctype.split(" ")[0]
         return "{} {}[{}]".format(ctype, self.name, "" if callable(self.size) else self.size)
-
-    def contribute_to_class(self, cls, name):
-        super().contribute_to_class(cls, name)
-        self.base_field.name = name
 
     def from_stream(self, stream, context=None):
         result = []
@@ -142,11 +153,10 @@ class ArrayField(Field):
         return total_written
 
 
-class ConditionalField(Field):
+class ConditionalField(BaseFieldMixin, Field):
     def __init__(self, base_field, condition, *args, **kwargs):
-        self.base_field = base_field
         self.condition = condition
-        super().__init__(*args, **kwargs)
+        super().__init__(base_field, *args, **kwargs)
 
     def get_condition(self, context):
         return _retrieve_property(context, self.condition)
@@ -155,10 +165,6 @@ class ConditionalField(Field):
     def ctype(self):
         ctype = self._ctype or self.base_field.ctype.split(" ")[0]
         return "{} {} (conditional)".format(ctype, self.name)
-
-    def contribute_to_class(self, cls, name):
-        super().contribute_to_class(cls, name)
-        self.base_field.name = name
 
     def from_stream(self, stream, context=None):
         if self.get_condition(context):
@@ -169,3 +175,18 @@ class ConditionalField(Field):
         if self.get_condition(context):
             return self.base_field.to_stream(stream, value, context)
         return 0
+
+
+class EnumField(BaseFieldMixin, Field):
+    def __init__(self, base_field, enum, *args, **kwargs):
+        self.enum = enum
+        super().__init__(base_field, *args, **kwargs)
+
+    def from_stream(self, stream, context=None):
+        value, length = self.base_field.from_stream(stream, context)
+        return self.enum(value), length
+
+    def to_stream(self, stream, value, context=None):
+        if hasattr(value, 'value'):
+            value = value.value
+        return self.base_field.to_stream(stream, value, context)

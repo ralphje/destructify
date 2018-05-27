@@ -1,3 +1,5 @@
+import enum
+
 import destructify
 
 
@@ -88,3 +90,17 @@ print(ConditionalStructure.from_bytes(b"\0"))
 print(bytes(ConditionalStructure.from_bytes(b"\0")))
 print(ConditionalStructure.from_bytes(b"\x01\0\x01"))
 print(bytes(ConditionalStructure.from_bytes(b"\x01\0\x01")))
+
+
+class Flags(enum.IntFlag):
+    R = 4
+    W = 2
+    X = 1
+
+
+class EnumStructure(destructify.Structure):
+    flag = destructify.EnumField(destructify.ByteField(), enum=Flags)
+
+print(EnumStructure.from_bytes(b"\0"))
+print(EnumStructure.from_bytes(b"\x05"))
+print(bytes(EnumStructure(flag=Flags.X | Flags.R | Flags.W)))
