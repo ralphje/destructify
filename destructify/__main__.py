@@ -119,3 +119,24 @@ bf = BitFieldStructure.from_bytes(bytes(bf))
 print(bf, bin(bf.bit), bin(bf.bit2), bin(bf.bit3))
 print(bytes(bf))
 
+
+class UnlimitedFixedLengthStructure(destructify.Structure):
+    text = destructify.FixedLengthField(length=-1)
+
+class UFLSStructure(destructify.Structure):
+    s = destructify.StructureField(UnlimitedFixedLengthStructure, length=5)
+
+ufls = UnlimitedFixedLengthStructure.from_bytes(b"\x01\x02\x03\x04\x05")
+print(ufls)
+ufls = UFLSStructure.from_bytes(b"\x01\x02\x03\x04\x05\x06")
+print(ufls)
+
+
+class ShortStructure(destructify.Structure):
+    text = destructify.FixedLengthField(length=3)
+
+class StructureThatSkips(destructify.Structure):
+    s = destructify.StructureField(ShortStructure, length=5)
+    text = destructify.FixedLengthField(length=3)
+
+print(StructureThatSkips.from_bytes(b"\x01\x02\x03\x04\x05\x06\x07\x08"))

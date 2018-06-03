@@ -1,3 +1,5 @@
+import io
+
 from . import Field, StreamExhaustedError, Substream, ParsingContext
 from .base import _retrieve_property
 
@@ -41,7 +43,7 @@ class FixedLengthField(Field):
         if len(read) < length:
             raise StreamExhaustedError("Could not parse field %s, trying to read %s bytes, but only %s read." %
                                        (self.full_name, length, len(read)))
-        return self.from_bytes(read), length
+        return self.from_bytes(read), len(read)
 
 
 class BitField(FixedLengthField):
@@ -152,6 +154,7 @@ class StructureField(Field):
             res, consumed = self.structure.from_stream(substream, context=ParsingContext(parent=context))
 
         if length is not None and consumed < length:
+            stream.seek(length - consumed, io.SEEK_CUR)
             consumed = length
         return res, consumed
 
