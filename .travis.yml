@@ -4,7 +4,6 @@ python:
   - 3.6
 
 install:
-  - pip install -r tests/requirements.txt
   - pip install codecov coverage flake8
   - python setup.py install
 
