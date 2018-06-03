@@ -119,19 +119,18 @@ class ParsingContext:
         return written
 
 
-class Substream(io.BufferedIOBase):
+class Substream(io.BufferedReader):
     """Represents a view of a subset of a file like object"""
 
-    def __init__(self, base: io.BufferedIOBase, start=0, stop=None):
-        super().__init__()
+    def __init__(self, raw: io.RawIOBase, start=0, stop=None):
+        super().__init__(raw)
 
-        self.base = base
         self.start = start
         self.stop = stop
 
     def _ensure_not_before_start(self):
-        if self.base.tell() < self.start:
-            self.base.seek(self.start, io.SEEK_SET)
+        if super().tell() < self.start:
+            super().seek(self.start, io.SEEK_SET)
 
     def _cap_amount_of_bytes(self, size):
         if self.stop is None:
@@ -146,21 +145,37 @@ class Substream(io.BufferedIOBase):
                 return max_to_read
             return min(max_to_read, size)
 
+    def peek(self, size=-1):
+        self._ensure_not_before_start()
+        return super().peek(self._cap_amount_of_bytes(size))
+
+    def read(self, size=-1):
+        self._ensure_not_before_start()
+        return super().read(self._cap_amount_of_bytes(size))
+
+    def read1(self, size):
+        self._ensure_not_before_start()
+        return super().read1(self._cap_amount_of_bytes(size))
+
+    def readline(self, size=-1):
+        self._ensure_not_before_start()
+        return super().readline(self._cap_amount_of_bytes(size))
+
     def seek(self, offset, origin=0):
-        current_position = self.base.tell()
+        current_position = super().tell()
 
         if origin == io.SEEK_SET:
-            self.base.seek(max(self.start + offset, self.start), io.SEEK_SET)
+            super().seek(max(self.start + offset, self.start), io.SEEK_SET)
 
         elif origin == io.SEEK_CUR:
-            self.base.seek(max(current_position + offset, self.start), io.SEEK_SET)
+            super().seek(max(current_position + offset, self.start), io.SEEK_SET)
 
         elif origin == io.SEEK_END:
             if self.stop is None:
-                self.base.seek(offset, io.SEEK_END)
+                super().seek(offset, io.SEEK_END)
                 self._ensure_not_before_start()  # can't know for sure we are not beyond start boundary
             else:
-                self.base.seek(max(self.stop + offset, self.start), io.SEEK_SET)
+                super().seek(max(self.stop + offset, self.start), io.SEEK_SET)
 
         else:
             raise ValueError("Unexpected origin: {}".format(origin))
@@ -168,8 +183,8 @@ class Substream(io.BufferedIOBase):
         return self.tell()
 
     def tell(self):
-        return max(self.base.tell() - self.start, 0)
+        return max(super().tell() - self.start, 0)
 
-    def read(self, size=-1):
-        self._ensure_not_before_start()
-        return self.base.read(self._cap_amount_of_bytes(size))
+    def close(self):
+        """Prevent the underlying buffer from being closed."""
+        return
