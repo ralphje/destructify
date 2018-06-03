@@ -24,5 +24,3 @@ class UnknownDependentFieldError(ParseError):
 
 class MisalignedFieldError(ParseError):
     pass
-
-

@@ -274,7 +274,7 @@ class ParsingContext:
         written = 0
         if self.bits_remaining:
             # we align to 8 bits
-            self.bits_remaining.extend([0] * (8 - (len(self.bits_remaining) % 8)))
+            self.bits_remaining.extend([0] * (-len(self.bits_remaining) % 8))
 
             number = sum((self.bits_remaining[i] << (len(self.bits_remaining) - i - 1)
                           for i in range(len(self.bits_remaining))))
