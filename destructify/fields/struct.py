@@ -37,7 +37,6 @@ class StructField(FixedLengthField):
     byte_order = ""
 
     def __init__(self, format=NOT_PROVIDED, byte_order=NOT_PROVIDED, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
         if format is not NOT_PROVIDED:
             self.format = format
@@ -50,7 +49,7 @@ class StructField(FixedLengthField):
             self.format = self.format[1:]
 
         self._struct = struct.Struct(self.byte_order + self.format)
-        self.length = self._struct.size
+        super().__init__(length=self._struct.size, *args, **kwargs)
 
     def contribute_to_class(self, cls, name):
         super().contribute_to_class(cls, name)

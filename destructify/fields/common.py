@@ -1,4 +1,4 @@
-from . import Field, NOT_PROVIDED, StreamExhaustedError
+from . import Field, StreamExhaustedError, Substream, ParsingContext
 from .base import _retrieve_property
 
 
@@ -7,11 +7,8 @@ class FixedLengthField(Field):
     returns the read bytes directly. Writing is unaffected by the length property.
     """
 
-    length = 0
-
-    def __init__(self, length=NOT_PROVIDED, *args, **kwargs):
-        if length is not NOT_PROVIDED:
-            self.length = length
+    def __init__(self, length, *args, **kwargs):
+        self.length = length
         super().__init__(*args, **kwargs)
 
     def __len__(self):
@@ -43,7 +40,7 @@ class FixedLengthField(Field):
         read = context.read_stream(stream, length)
         if len(read) < length:
             raise StreamExhaustedError("Could not parse field %s, trying to read %s bytes, but only %s read." %
-                                       (self.name, length, len(read)))
+                                       (self.full_name, length, len(read)))
         return self.from_bytes(read), length
 
 
@@ -121,22 +118,42 @@ class StructureField(Field):
     is an empty structure.
     """
 
-    def __init__(self, structure, *args, **kwargs):
+    def __init__(self, structure, length=None, *args, **kwargs):
         self.structure = structure
+        self.length = length
+
         super().__init__(*args, **kwargs)
-        if self.default is None:
+
+        if not self.has_default:
             self.default = lambda: self.structure()
 
     def __len__(self):
-        return len(self.structure)
+        if isinstance(self.length, int):
+            return self.length
+        else:
+            return len(self.structure)
 
     @property
     def ctype(self):
         ctype = self._ctype or self.structure._meta.object_name
         return "{} {}".format(ctype, self.name)
 
-    def from_stream(self, stream, context=None):
-        return self.structure.from_stream(stream)
+    def get_length(self, context):
+        return _retrieve_property(context, self.length)
+
+    def from_stream(self, stream, context):
+        length = None
+        if self.length is not None:
+            length = self.get_length(context)
+
+        with Substream(stream,
+                       start=stream.tell(),
+                       stop=stream.tell() + length if length is not None else None) as substream:
+            res, consumed = self.structure.from_stream(substream, context=ParsingContext(parent=context))
+
+        if length is not None and consumed < length:
+            consumed = length
+        return res, consumed
 
     def to_stream(self, stream, value, context=None):
         if value is None:

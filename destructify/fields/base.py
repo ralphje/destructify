@@ -46,6 +46,10 @@ class Field:
         self.creation_counter = Field.creation_counter
         Field.creation_counter += 1
 
+    @property
+    def full_name(self):
+        return self.bound_structure.__name__ + "." + self.name
+
     def __len__(self):
         """You can call :const:`len` on a field to retrieve its byte length. It can either return a value that makes
         sense, or it will raise an :exc:`ImpossibleToCalculateLengthError` when the length depends on something that

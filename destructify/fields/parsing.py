@@ -8,10 +8,11 @@ class ParsingContext:
     to contain context for the field that is being parsed.
     """
 
-    def __init__(self, *, structure=None, parsed_fields=None):
+    def __init__(self, *, structure=None, parsed_fields=None, parent=None):
         self.structure = structure
         self.parsed_fields = parsed_fields
         self.bits_remaining = None
+        self.parent = parent
 
     def __getitem__(self, name):
         """Retrieves the named item from the structure (if known) or (if unknown) from the dict of already parsed
@@ -187,4 +188,5 @@ class Substream(io.BufferedReader):
 
     def close(self):
         """Prevent the underlying buffer from being closed."""
+        self.raw.seek(super().tell())
         return

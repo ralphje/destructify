@@ -80,8 +80,9 @@ class Structure(metaclass=StructureBase):
         return values
 
     @classmethod
-    def from_stream(cls, stream):
-        context = ParsingContext()
+    def from_stream(cls, stream, context=None):
+        if context is None:
+            context = ParsingContext()
         attrs = {}
         total_consumed = 0
         for field in cls._meta.fields:
