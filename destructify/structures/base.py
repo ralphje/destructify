@@ -1,7 +1,7 @@
 import inspect
 import io
 
-from destructify.fields.base import ParsingContext
+from destructify.fields.parsing import ParsingContext
 from destructify.structures.options import StructureOptions
 
 

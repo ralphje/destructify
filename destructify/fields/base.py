@@ -115,7 +115,7 @@ class Field:
         ctype = self._ctype or self.__class__.__name__
         return "{} {}".format(ctype, self.name)
 
-    def get_final_value(self, value, context=None):
+    def get_final_value(self, value, context):
         """Returns the final value given a context. This is used by :meth:`Structure.to_stream` to retrieve the
         value that is to be written to the stream. It is called before any modifications to the value can be made by
         the :class:`Field`.
@@ -126,7 +126,7 @@ class Field:
 
         return self.get_overridden_value(value, context)
 
-    def from_stream(self, stream, context=None):
+    def from_stream(self, stream, context):
         """Given a stream of bytes object, consumes a given bytes object to Python representation.
 
         The default implementation is to raise a :exc:`NotImplementedError`
@@ -145,7 +145,7 @@ class Field:
         """
         return value
 
-    def to_stream(self, stream, value, context=None):
+    def to_stream(self, stream, value, context):
         """Writes a value to the stream, and returns the amount of bytes written.
 
         The default implementation is to call :meth:`to_bytes` on value before writing it to the stream.
@@ -167,118 +167,3 @@ class Field:
         """
         return value
 
-
-class ParsingContext:
-    """A context that is passed around to different methods during reading from and writing to a stream. It is used
-    to contain context for the field that is being parsed.
-    """
-
-    def __init__(self, *, structure=None, parsed_fields=None):
-        self.structure = structure
-        self.parsed_fields = parsed_fields
-        self.bits_remaining = None
-
-    def __getitem__(self, name):
-        """Retrieves the named item from the structure (if known) or (if unknown) from the dict of already parsed
-        fields.
-        """
-
-        if self.structure and hasattr(self.structure, name):
-            return getattr(self.structure, name)
-        elif self.parsed_fields and name in self.parsed_fields:
-            return self.parsed_fields[name]
-        else:
-            raise UnknownDependentFieldError("Dependent field %s is not loaded yet, so can't be used." % name)
-
-    def __getattr__(self, name):
-        """Allows you to do context.value instead of context['value']."""
-        return self.__getitem__(name)
-
-    def read_stream(self, stream, size=-1):
-        """Alias for ``stream.read(size)``, but raises an :exc:`MisalignedFieldError` when bits have still not been
-        parsed (used by :class:`BitField`)
-
-        :return: the bytes read
-        """
-        if self.bits_remaining:
-            raise MisalignedFieldError("A field following a BitField is misaligned. %s bits are still in the buffer"
-                                       % len(self.bits_remaining))
-
-        return stream.read(size)
-
-    def write_stream(self, stream, value):
-        """Alias for ``stream.write(value)``, but also ensures that remaining bits (used by :class:`BitField`) are
-        written to the stream
-
-        :return: the amount of bytes written
-        """
-
-        return self._write_remaining_bits(stream) + stream.write(value)
-
-    def finalize_stream(self, stream):
-        """Called to finalize writing to a stream, ensuring that remaining bits (used by :class:`BitField`) are
-        written to the stream
-
-        :return: the amount of bytes written
-        """
-
-        return self._write_remaining_bits(stream)
-
-    def read_stream_bits(self, stream, bit_count):
-        """Reads the given amount of bits from the stream. It does not necessarily hit the stream, as it is possible
-        that the required amount of bits has already been read in a previous call.
-
-        :return: a tuple of the integer representing the read bits, and the amount of bytes read from the stream
-            (which may be zero)
-        """
-
-        result = []
-        read_count = 0
-        while len(result) < bit_count:
-            # fill the bits_remaining as necessary
-            if not self.bits_remaining:
-                read = stream.read(1)
-                read_count += 1
-                if not read:
-                    raise StreamExhaustedError("Could not parse bitfield, trying to read 1 byte")
-                # trick to split each bit in a separate element
-                self.bits_remaining = [read[0] >> i & 1 for i in range(7, -1, -1)]
-
-            rem_size = bit_count - len(result)
-            result.extend(self.bits_remaining[:rem_size])
-            self.bits_remaining = self.bits_remaining[rem_size:]
-
-        # this converts it back to a single integer
-        return sum((result[i] << (len(result) - i - 1) for i in range(len(result)))), read_count
-
-    def write_stream_bits(self, stream, value, bit_count, *, force_write=False):
-        """Writes the value with the given amount of bits to the stream. By default, it does not hit the stream, as
-        all bit writes are bundled.
-
-        :param stream: The stream to write to
-        :param value: The value to write to the stream
-        :param bit_count: The amount of bits from the value to write to the stream
-        :param bool force_write: If True, all bits are written to the stream, including the previously cached bits.
-        :return: the amount of bytes written (always zero unless force_write is True)
-        """
-
-        if not self.bits_remaining:
-            self.bits_remaining = []
-        self.bits_remaining.extend([value >> i & 1 for i in range(bit_count - 1, -1, -1)])
-
-        if force_write:
-            return self._write_remaining_bits(stream)
-        return 0
-
-    def _write_remaining_bits(self, stream):
-        written = 0
-        if self.bits_remaining:
-            # we align to 8 bits
-            self.bits_remaining.extend([0] * (-len(self.bits_remaining) % 8))
-
-            number = sum((self.bits_remaining[i] << (len(self.bits_remaining) - i - 1)
-                          for i in range(len(self.bits_remaining))))
-            written = stream.write(number.to_bytes(len(self.bits_remaining) // 8, 'big'))
-            self.bits_remaining = None
-
-        return written
