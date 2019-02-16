@@ -48,6 +48,9 @@ class ParsingContext:
 
         :return: the amount of bytes written
         """
+        if self.bits_remaining and len(self.bits_remaining) % 8 != 0:
+            raise MisalignedFieldError("A field following a BitField is misaligned. %s bits are still in the buffer"
+                                       % len(self.bits_remaining))
 
         return self._write_remaining_bits(stream) + stream.write(value)
 

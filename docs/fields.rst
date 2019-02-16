@@ -149,7 +149,7 @@ Basic fields
 .. autoclass:: BitField
 
    When using the :class:`BitField`, you must be careful to align the bits to whole bytes. You can use multiple
-   :class:`BitField`s consecutively without any problem, but the following would raise errors::
+   :class:`BitField` s consecutively without any problem, but the following would raise errors::
 
        class MultipleBitFields(Structure):
            bit0 = BitField(length=1)
@@ -157,7 +157,7 @@ Basic fields
            byte = FixedLengthField(length=1)
 
    You can fix this by ensuring all consecutive bit fields align to a byte in total, or, alternatively, you can specify
-   :attr:`realign` on the last :class:`BitField` to realign to the next byte:
+   :attr:`realign` on the last :class:`BitField` to realign to the next byte.
 
    .. attribute:: BitField.realign
 

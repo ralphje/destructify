@@ -1,6 +1,6 @@
 import unittest
 
-from destructify import Structure, BitField, FixedLengthField, StructureField
+from destructify import Structure, BitField, FixedLengthField, StructureField, MisalignedFieldError
 
 
 class BitFieldTestCase(unittest.TestCase):
@@ -10,8 +10,8 @@ class BitFieldTestCase(unittest.TestCase):
             bit2 = BitField(length=8)
 
         s = Struct.from_bytes(b"\xFF\xFF")
-        self.assertEqual(0b111, s.bit1)
-        self.assertEqual(0b11111111, s.bit2)
+        self.assertEqual(s.bit1, 0b111)
+        self.assertEqual(s.bit2, 0b11111111)
 
     def test_writing(self):
         class Struct(Structure):
@@ -33,6 +33,31 @@ class BitFieldTestCase(unittest.TestCase):
             byte = FixedLengthField(length=1)
 
         self.assertEqual(b"\xFF\x33", Struct2(bit1=0b111, bit2=0b111111, byte=b'\x33').to_bytes())
+
+    def test_misaligned_field(self):
+        class Struct(Structure):
+            bit1 = BitField(length=1)
+            bit2 = BitField(length=1)
+            byte = FixedLengthField(length=1)
+
+        with self.assertRaises(MisalignedFieldError):
+            Struct.from_bytes(b"\xFF\xFF")
+
+        with self.assertRaises(MisalignedFieldError):
+            self.assertEqual(b"\xc0\x33", Struct(bit1=1, bit2=1, byte=b'\x33').to_bytes())
+
+    def test_misaligned_field_with_realign(self):
+        class Struct(Structure):
+            bit1 = BitField(length=1)
+            bit2 = BitField(length=1, realign=True)
+            byte = FixedLengthField(length=1)
+
+        s = Struct.from_bytes(b"\xFF\xFF")
+        self.assertEqual(s.bit1, 1)
+        self.assertEqual(s.bit2, 1)
+        self.assertEqual(s.byte, b'\xFF')
+
+        self.assertEqual(b"\xc0\x33", Struct(bit1=1, bit2=1, byte=b'\x33').to_bytes())
 
 
 class StructureFieldTest(unittest.TestCase):
