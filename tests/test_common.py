@@ -10,29 +10,29 @@ class BitFieldTestCase(unittest.TestCase):
             bit2 = BitField(length=8)
 
         s = Struct.from_bytes(b"\xFF\xFF")
-        self.assertEqual(s.bit1, 0b111)
-        self.assertEqual(s.bit2, 0b11111111)
+        self.assertEqual(0b111, s.bit1)
+        self.assertEqual(0b11111111, s.bit2)
 
     def test_writing(self):
         class Struct(Structure):
             bit1 = BitField(length=3)
             bit2 = BitField(length=8)
 
-        self.assertEqual(Struct(bit1=0b111, bit2=0b11111111).to_bytes(), b"\xFF\xe0")
+        self.assertEqual(b"\xFF\xe0", Struct(bit1=0b111, bit2=0b11111111).to_bytes())
 
     def test_writing_full_bytes(self):
         class Struct(Structure):
             bit1 = BitField(length=3)
             bit2 = BitField(length=5)
 
-        self.assertEqual(Struct(bit1=0b111, bit2=0b111111).to_bytes(), b"\xFF")
+        self.assertEqual(b"\xFF", Struct(bit1=0b111, bit2=0b111111).to_bytes())
 
         class Struct2(Structure):
             bit1 = BitField(length=3)
             bit2 = BitField(length=5)
             byte = FixedLengthField(length=1)
 
-        self.assertEqual(Struct2(bit1=0b111, bit2=0b111111, byte=b'\x33').to_bytes(), b"\xFF\x33")
+        self.assertEqual(b"\xFF\x33", Struct2(bit1=0b111, bit2=0b111111, byte=b'\x33').to_bytes())
 
 
 class StructureFieldTest(unittest.TestCase):

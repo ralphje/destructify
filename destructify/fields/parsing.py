@@ -128,6 +128,10 @@ class Substream(io.BufferedReader):
 
         self.start = start
         self.stop = stop
+        self.__closed = False
+
+        if stop is not None and start > stop:
+            raise ValueError("Can not initialize Substream with a start larger than stop.")
 
     def _ensure_not_before_start(self):
         if super().tell() < self.start:
@@ -188,5 +192,7 @@ class Substream(io.BufferedReader):
 
     def close(self):
         """Prevent the underlying buffer from being closed."""
-        self.raw.seek(super().tell())
-        return
+
+        if not self.__closed:
+            self.raw.seek(super().tell())
+            self.__closed = True
