@@ -106,29 +106,34 @@ Base field
 
    .. automethod:: Field.to_bytes
 
-Basic fields
-============
+Byte fields
+===========
 .. autoclass:: FixedLengthField
 
    .. attribute:: FixedLengthField.length
 
-       This specifies the length of the field. This is the amount of data that is read from the stream. It does not
-       affect the amount of data that is written, however.
+      This specifies the length of the field. This is the amount of data that is read from the stream. It does not
+      affect the amount of data that is written, however.
 
-       You can set it to one of the following:
+      You can set it to one of the following:
 
-       * A callable with zero arguments
-       * A callable taking a :class:`ParsingContext` object
-       * A string that represents the field name that contains the length
-       * An integer
+      * A callable with zero arguments
+      * A callable taking a :class:`ParsingContext` object
+      * A string that represents the field name that contains the length
+      * An integer
 
-       For instance::
+      For instance::
 
-           class StructureWithLength(Structure):
-               length = UnsignedByteField()
-               value = FixedLengthField(length='length')
+          class StructureWithLength(Structure):
+              length = UnsignedByteField()
+              value = FixedLengthField(length='length')
 
-       The length given a context is obtained by calling ``FixedLengthField.get_length(value, context)``.
+      The length given a context is obtained by calling ``FixedLengthField.get_length(value, context)``.
+
+   .. attribute:: FixedLengthField.strict
+
+      When set, the field will not raise a :class:`StreamExhaustedError` when there are not sufficient bytes to
+      completely fill the field.
 
    When the class is initialized on a :class:`Structure`, and the length property is specified using a string, the
    default implementation of the :attr:`Field.override` on the named attribute of the :class:`Structure` is changed
@@ -145,6 +150,77 @@ Basic fields
        b'\x01123456'
 
    This behaviour can be changed by manually specifying a different :attr:`Field.override` on ``length``.
+
+.. autoclass:: TerminatedField
+
+   .. attribute:: TerminatedField.terminator
+
+      The terminator to read until. It can be multiple bytes. Defaults to a null-byte (``b'\0'``).
+
+   .. attribute:: TerminatedField.step
+
+      The size of the steps for finding the terminator. This is useful if you have a multi-byte terminator that is
+      aligned. For instance, when reading NULL-terminated UTF-16 strings, you'd expect two NULL bytes aligned to two
+      bytes. Defaults to 1.
+
+   Example usage::
+
+       >>> class TerminatedStructure(Structure):
+       ...     foo = TerminatedField()
+       ...     bar = TerminatedField(terminator=b'\r\n')
+       ...
+       >>> TerminatedStructure.from_bytes(b"hello\0world\r\n")
+       <TerminatedStructure: TerminatedStructure(foo=b'hello', bar=b'world')>
+
+String fields
+=============
+There are two flavours of string fields: the :class:`FixedLengthStringField` is used for strings that are contained in
+fixed-length fields, and is a subclass of :class:`FixedLengthField`, and the :class:`TerminatedStringField` that is used
+for terminated strings, using :class:`TerminatedField` as base.
+
+Both string fields have the following attributes:
+
+.. autoclass:: StringFieldMixin
+
+   .. attribute:: StringFieldMixin.encoding
+
+      The encoding of the string. Defaults to ``utf-8``, but can be any encoding supported by Python.
+
+   .. attribute:: StringFieldMixin.errors
+
+      The error handler for encoding/decoding failures. Defaults to Python's default of ``strict``.
+
+.. autoclass:: FixedLengthStringField
+
+   See :class:`FixedLengthField` and :class:`StringFieldMixin` for all attributes.
+
+.. autoclass:: TerminatedStringField
+
+   See :class:`TerminatedField` and :class:`StringFieldMixin` for all attributes.
+
+Numeric fields
+==============
+
+.. autoclass:: IntegerField
+
+   .. note::
+      The :class:`IntegerField` is not to be confused with the :class:`IntField`, which is based on :class:`StructField`.
+      For readability, you are recommended to use the :class:`IntegerField` whenever possible.
+
+   .. attribute:: IntegerField.length
+
+      The length (in bytes) of the field. When writing a number that is too large to be held in this field, you will
+      get an ``OverflowError``.
+
+   .. attribute:: IntegerField.byte_order
+
+      The byte order (i.e. endianness) of the bytes in this field. If you do not specify this, you must specify a
+      ``byte_order`` on the structure.
+
+   .. attribute:: IntegerField.signed
+
+      Boolean indicating whether the integer is to be interpreted as a signed or unsigned integer.
+
 
 .. autoclass:: BitField
 
@@ -178,24 +254,112 @@ Basic fields
 
       Thus, ignoring bits 2-0 from the first byte.
 
-.. autoclass:: TerminatedField
-
-   .. attribute:: TerminatedField.terminator
-
-      The terminator to read until. It can be multiple bytes. Defaults to a null-byte (``b'\0'``).
-
-   Example usage::
-
-       >>> class TerminatedStructure(Structure):
-       ...     foo = TerminatedField()
-       ...     bar = TerminatedField(terminator=b'\r\n')
-       ...
-       >>> TerminatedStructure.from_bytes(b"hello\0world\r\n")
-       <TerminatedStructure: TerminatedStructure(foo=b'hello', bar=b'world')>
-
-Common fields
+Struct fields
 =============
+Destructify allows you to use 'classic' :mod:`struct` constructs as well.
 
+.. autoclass:: StructField
+
+   .. attribute:: StructField.format
+
+      The format to be passed to the struct module. See
+      `Struct Format Strings`<https://docs.python.org/3/library/struct.html#format-strings> in the manual of Python
+      for information on how to construct these.
+
+      You do not need to include the byte order. If you do, it acts as a default for the byte_order attribute, although
+      that takes precedence.
+
+   .. attribute:: StructField.byte_order
+
+      The byte order to use for the struct. If this is not specified, an none is provided in the :attr:`format` field,
+      it defaults to the ``byte_order`` specified in the meta of the Structure.
+
+This project also provides a smorgasbord of several default implementations for the different types of structs. First
+off, there are four different kinds of base classes for the different byte orders:
+
+=============  ======  ================================
+Byte order     Format  Class name
+=============  ======  ================================
+little endian  ``<``   :class:`LittleEndianStructField`
+big endian     ``>``   :class:`BigEndianStructField`
+standard       ``=``   :class:`StandardStructField`
+native         ``@``   :class:`NativeStructField`
+=============  ======  ================================
+
+Each of the different formats supported by the struct module also gets a different base class. All of these are then
+combined into a multiple-inheritance structure where each specific structure inherits both from one of the
+byte-order classes above and one of the base classes. For instance, :class:`StandardShortField` inherits from both a
+:class:`ShortField` and a :class:`StandardStructField`.
+
+.. hint::
+   Use a :class:`IntegerField` when you know the amount of bytes you need to parse. Classes below are typically used
+   for system structures and the :class:`IntegerField` is typically used for network structures.
+
+Each of the classes is listed in the table below.
+
++----------------------------------+--------+----------------------------------------------------------+
+| Base class                       | Format | Classes                                                  |
++==================================+========+====================================+=====================+
+| :class:`CharField`               | ``c``  | | **native**: :class:`NativeCharField`                   |
++----------------------------------+--------+----------------------------------------------------------+
+| :class:`ByteField`               | ``b``  | | **native**: :class:`NativeByteField`                   |
++----------------------------------+--------+----------------------------------------------------------+
+| :class:`UnsignedByteField`       | ``B``  | | **native**: :class:`NativeUnsignedByteField`           |
++----------------------------------+--------+----------------------------------------------------------+
+| :class:`BoolField`               | ``?``  | | **native**: :class:`NativeBoolField`                   |
++----------------------------------+--------+----------------------------------------------------------+
+| :class:`ShortField`              | ``h``  | | **little endian**: :class:`LEShortField`               |
+|                                  |        | | **big endian**: :class:`BEShortField`                  |
+|                                  |        | | **standard**: :class:`StandardShortField`              |
+|                                  |        | | **native**: :class:`NativeShortField`                  |
++----------------------------------+--------+----------------------------------------------------------+
+| :class:`UnsignedShortField`      | ``H``  | | **little endian**: :class:`LEUnsignedShortField`       |
+|                                  |        | | **big endian**: :class:`BEUnsignedShortField`          |
+|                                  |        | | **standard**: :class:`StandardUnsignedShortField`      |
+|                                  |        | | **native**: :class:`NativeUnsignedShortField`          |
++----------------------------------+--------+----------------------------------------------------------+
+| :class:`IntField`                | ``i``  | | **little endian**: :class:`LEIntField`                 |
+|                                  |        | | **big endian**: :class:`BEIntField`                    |
+|                                  |        | | **standard**: :class:`StandardIntField`                |
+|                                  |        | | **native**: :class:`NativeIntField`                    |
++----------------------------------+--------+----------------------------------------------------------+
+| :class:`UnsignedIntField`        | ``I``  | | **little endian**: :class:`LEUnsignedIntField`         |
+|                                  |        | | **big endian**: :class:`BEUnsignedIntField`            |
+|                                  |        | | **standard**: :class:`StandardUnsignedIntField`        |
+|                                  |        | | **native**: :class:`NativeUnsignedIntField`            |
++----------------------------------+--------+----------------------------------------------------------+
+| n/a                              | ``l``  | | **native**: :class:`NativeLongField`                   |
++----------------------------------+--------+----------------------------------------------------------+
+| n/a                              | ``L``  | | **native**: :class:`NativeUnsignedLongField`           |
++----------------------------------+--------+----------------------------------------------------------+
+| :class:`LongField`               | ``q``  | | **little endian**: :class:`LELongField`                |
+|                                  |        | | **big endian**: :class:`BELongField`                   |
+|                                  |        | | **standard**: :class:`StandardLongField`               |
+|                                  |        | | **native**: :class:`NativeLongLongField`               |
++----------------------------------+--------+----------------------------------------------------------+
+| :class:`UnsignedLongField`       | ``Q``  | | **little endian**: :class:`LEUnsignedLongField`        |
+|                                  |        | | **big endian**: :class:`LEUnsignedLongField`           |
+|                                  |        | | **standard**: :class:`BEUnsignedLongField`             |
+|                                  |        | | **native**: :class:`NativeUnsignedLongLongField`       |
++----------------------------------+--------+----------------------------------------------------------+
+| :class:`HalfPrecisionFloatField` | ``e``  | | **little endian**: :class:`LEHalfPrecisionFloatField`  |
+|                                  |        | | **big endian**: :class:`BEHalfPrecisionFloatField`     |
+|                                  |        | | **standard**: :class:`StandardHalfPrecisionFloatField` |
+|                                  |        | | **native**: :class:`NativeHalfPrecisionFloatField`     |
++----------------------------------+--------+----------------------------------------------------------+
+| :class:`FloatField`              | ``f``  | | **little endian**: :class:`LEFloatField`               |
+|                                  |        | | **big endian**: :class:`BEFloatField`                  |
+|                                  |        | | **standard**: :class:`StandardFloatField`              |
+|                                  |        | | **native**: :class:`NativeFloatField`                  |
++----------------------------------+--------+----------------------------------------------------------+
+| :class:`DoubleField`             | ``d``  | | **little endian**: :class:`LEDoubleField`              |
+|                                  |        | | **big endian**: :class:`BEDoubleField`                 |
+|                                  |        | | **standard**: :class:`StandardDoubleField`             |
+|                                  |        | | **native**: :class:`NativeDoubleField`                 |
++----------------------------------+--------+----------------------------------------------------------+
+
+Other fields
+============
 .. autoclass:: StructureField
 
    .. attribute:: StructureField.structure

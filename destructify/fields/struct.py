@@ -108,19 +108,19 @@ StandardUnsignedShortField = _factory("StandardUnsignedShortField", bases=(Stand
 NativeUnsignedShortField = _factory("NativeUnsignedShortField", _ctype="unsigned short",
                                     bases=(NativeStructField, UnsignedShortField))
 
-IntegerField = _factory("IntegerField", format="i", _ctype="int32_t", bases=(StructField,))
-LEIntegerField = _factory("LEIntegerField", bases=(LittleEndianStructField, IntegerField))
-BEIntegerField = _factory("BEIntegerField", bases=(BigEndianStructField, IntegerField))
-StandardIntegerField = _factory("StandardIntegerField", bases=(StandardStructField, IntegerField))
-NativeIntegerField = _factory("NativeIntegerField", _ctype="int", bases=(NativeStructField, IntegerField))
+IntField = _factory("IntField", format="i", _ctype="int32_t", bases=(StructField,))
+LEIntField = _factory("LEIntField", bases=(LittleEndianStructField, IntField))
+BEIntField = _factory("BEIntField", bases=(BigEndianStructField, IntField))
+StandardIntField = _factory("StandardIntField", bases=(StandardStructField, IntField))
+NativeIntField = _factory("NativeIntField", _ctype="int", bases=(NativeStructField, IntField))
 
-UnsignedIntegerField = _factory("UnsignedIntegerField", format="I", _ctype="uint32_t", bases=(StructField,))
-LEUnsignedIntegerField = _factory("LEUnsignedIntegerField", bases=(LittleEndianStructField, UnsignedIntegerField))
-BEUnsignedIntegerField = _factory("BEUnsignedIntegerField", bases=(BigEndianStructField, UnsignedIntegerField))
-StandardUnsignedIntegerField = _factory("StandardUnsignedIntegerField",
-                                        bases=(StandardStructField, UnsignedIntegerField))
-NativeUnsignedIntegerField = _factory("NativeUnsignedIntegerField", _ctype="unsigned int",
-                                      bases=(NativeStructField, UnsignedIntegerField))
+UnsignedIntField = _factory("UnsignedIntField", format="I", _ctype="uint32_t", bases=(StructField,))
+LEUnsignedIntField = _factory("LEUnsignedIntField", bases=(LittleEndianStructField, UnsignedIntField))
+BEUnsignedIntField = _factory("BEUnsignedIntField", bases=(BigEndianStructField, UnsignedIntField))
+StandardUnsignedIntField = _factory("StandardUnsignedIntField",
+                                        bases=(StandardStructField, UnsignedIntField))
+NativeUnsignedIntField = _factory("NativeUnsignedIntField", _ctype="unsigned int",
+                                      bases=(NativeStructField, UnsignedIntField))
 
 NativeLongField = _factory("NativeLongField", format="l", _ctype="long", bases=(NativeStructField, ))
 NativeUnsignedLongField = _factory("NativeUnsignedLongField", format="L", _ctype="unsigned long",

@@ -2,7 +2,7 @@ import enum
 import unittest
 
 from destructify import Structure, BitField, FixedLengthField, StructureField, MisalignedFieldError, ArrayField, \
-    DefinitionError, BaseFieldMixin, Field, EnumField
+    DefinitionError, BaseFieldMixin, Field, EnumField, FixedLengthStringField, TerminatedStringField, IntegerField
 
 
 class BaseFieldTestCase(unittest.TestCase):
@@ -122,6 +122,61 @@ class StructureFieldTest(unittest.TestCase):
         self.assertEqual(b"\x01\x02\03\x04", s.to_bytes())
 
 
+class StringFieldsTest(unittest.TestCase):
+    def test_parsing_fixed_length(self):
+        class Struct(Structure):
+            string = FixedLengthStringField(5)
+
+        class Struct2(Structure):
+            string = FixedLengthStringField(8, encoding='utf-16-le')
+
+        self.assertEqual('abcde', Struct.from_bytes(b"abcde").string)
+        self.assertEqual('\xfcber', Struct2.from_bytes(b'\xfc\0b\0e\0r\0').string)
+
+    def test_parsing_fixed_length_error(self):
+        with self.assertRaises(UnicodeDecodeError):
+            FixedLengthStringField(7, encoding='utf-16-le').from_bytes(b'\xfc\0b\0e\0r')
+
+        self.assertEqual("\xfcbe\uFFFD",
+                         FixedLengthStringField(7, encoding='utf-16-le', errors='replace').from_bytes(b'\xfc\0b\0e\0r'))
+        self.assertEqual("h\0\0",
+                         FixedLengthStringField(7, encoding='utf-16-le').from_bytes(b'h\0\0\0\0\0'))
+
+    def test_writing_fixed_length(self):
+        self.assertEqual(b"b\0y\0e\0b\0y\0e\0", FixedLengthStringField(7, encoding='utf-16-le').to_bytes("byebye"))
+
+    def test_parsing_terminated(self):
+        class Struct(Structure):
+            string = TerminatedStringField(b'\0')
+
+        class Struct2(Structure):
+            string = TerminatedStringField(b'\0\0', encoding='utf-16-le', step=2)
+
+        self.assertEqual('abcde', Struct.from_bytes(b"abcde\0").string)
+        self.assertEqual('\xfcber', Struct2.from_bytes(b'\xfc\0b\0e\0r\0\0\0').string)
+
+    def test_writing_terminated(self):
+        self.assertEqual(b"b\0y\0e\0\0\0", TerminatedStringField(b'\0\0', encoding='utf-16-le').to_bytes("bye"))
+
+
+class IntegerFieldTest(unittest.TestCase):
+    def test_parsing(self):
+        self.assertEqual(256, IntegerField(2, 'big').from_bytes(b'\x01\0'))
+        self.assertEqual(1, IntegerField(2, 'little').from_bytes(b'\x01\0'))
+        self.assertEqual(-257, IntegerField(2, 'little', signed=True).from_bytes(b'\xff\xfe'))
+        self.assertEqual(65534, IntegerField(2, 'big', signed=False).from_bytes(b'\xff\xfe'))
+        self.assertEqual(-257, IntegerField(2, 'big', signed=True).from_bytes(b'\xfe\xff'))
+
+    def test_writing(self):
+        self.assertEqual(b'\x01\0', IntegerField(2, 'big').to_bytes(256))
+        self.assertEqual(b'\x01\0', IntegerField(2, 'little').to_bytes(1))
+        self.assertEqual(b'\xff\xfe', IntegerField(2, 'little', signed=True).to_bytes(-257))
+        with self.assertRaises(OverflowError):
+            IntegerField(1, 'little').to_bytes(1000)
+        with self.assertRaises(OverflowError):
+            IntegerField(1, 'little').to_bytes(-1000)
+
+
 class EnumFieldTest(unittest.TestCase):
     def test_len(self):
         self.assertEqual(1, len(EnumField(FixedLengthField(1), enum.Enum)))
@@ -138,3 +193,14 @@ class EnumFieldTest(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             Struct.from_bytes(b'a')
+
+    def test_writing(self):
+        class En(enum.Enum):
+            TEST = b'b'
+
+        class Struct(Structure):
+            byte1 = EnumField(FixedLengthField(1), En)
+
+        s = Struct(byte1=En.TEST)
+        self.assertEqual(b'b', s.to_bytes())
+

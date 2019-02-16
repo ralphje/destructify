@@ -1,6 +1,6 @@
 import io
 
-from . import Field, StreamExhaustedError, Substream, ParsingContext
+from . import Field, StreamExhaustedError, Substream, ParsingContext, NOT_PROVIDED
 from ..exceptions import DefinitionError
 from .base import _retrieve_property
 
@@ -10,8 +10,9 @@ class FixedLengthField(Field):
     returns the read bytes directly. Writing is unaffected by the length property.
     """
 
-    def __init__(self, length, *args, **kwargs):
+    def __init__(self, length, *args, strict=True, **kwargs):
         self.length = length
+        self.strict = strict
         super().__init__(*args, **kwargs)
 
     def __len__(self):
@@ -41,7 +42,7 @@ class FixedLengthField(Field):
     def from_stream(self, stream, context=None):
         length = self.get_length(context)
         read = context.read_stream(stream, length)
-        if len(read) < length:
+        if len(read) < length and self.strict:
             raise StreamExhaustedError("Could not parse field %s, trying to read %s bytes, but only %s read." %
                                        (self.full_name, length, len(read)))
         return self.from_bytes(read), len(read)
@@ -52,7 +53,7 @@ class BitField(FixedLengthField):
     reads integers.
     """
 
-    def __init__(self, length, realign=False, *args, **kwargs):
+    def __init__(self, length, *args, realign=False, **kwargs):
         self.realign = realign
         super().__init__(length, *args, **kwargs)
 
@@ -93,20 +94,21 @@ class TerminatedField(Field):
      without the terminator.
     """
 
-    def __init__(self, terminator=b'\0', *args, **kwargs):
+    def __init__(self, terminator=b'\0', *args, step=1, **kwargs):
         self.terminator = terminator
+        self.step = step
         super().__init__(*args, **kwargs)
 
     def from_stream(self, stream, context=None):
         length = 0
         read = b""
         while True:
-            c = context.read_stream(stream, 1)
+            c = context.read_stream(stream, self.step)
             if not c:
                 raise StreamExhaustedError("Could not parse field %s; did not find terminator %s" %
                                            (self.name, self.terminator))
             read += c
-            length += 1
+            length += self.step
             if read.endswith(self.terminator):
                 break
 
@@ -116,12 +118,56 @@ class TerminatedField(Field):
         return value + self.terminator
 
 
+class StringFieldMixin:
+    def __init__(self, *args, encoding='utf-8', errors='strict', **kwargs):
+        self.encoding = encoding
+        self.errors = errors
+        super().__init__(*args, **kwargs)
+
+    def from_bytes(self, value):
+        return super().from_bytes(value).decode(self.encoding, self.errors)
+
+    def to_bytes(self, value):
+        return super().to_bytes(value.encode(self.encoding, self.errors))
+
+
+class FixedLengthStringField(StringFieldMixin, FixedLengthField):
+    pass
+
+
+class TerminatedStringField(StringFieldMixin, TerminatedField):
+    pass
+
+
+class IntegerField(FixedLengthField):
+    def __init__(self, length, byte_order=None, *args, signed=False, **kwargs):
+        self.byte_order = byte_order
+        self.signed = signed
+        super().__init__(length=length, *args, **kwargs)
+
+    def from_bytes(self, value):
+        return int.from_bytes(super().from_bytes(value), self.byte_order, signed=self.signed)
+
+    def to_bytes(self, value):
+        return super().to_bytes(value.to_bytes(self.length, self.byte_order, signed=self.signed))
+
+    def contribute_to_class(self, cls, name):
+        super().contribute_to_class(cls, name)
+
+        # If byte_order is specified in the meta of the structure, we change our own default byte order (if not set)
+        if self.bound_structure._meta.byte_order and not self.byte_order:
+            try:
+                self.byte_order = self.bound_structure._meta.byte_order
+            except KeyError:
+                raise DefinitionError("byte_order %s is invalid" % self.bound_structure._meta.byte_order)
+
+
 class StructureField(Field):
     """A field that contains a :class:`Structure` in itself. If a default is not defined on the field, the default
     is an empty structure.
     """
 
-    def __init__(self, structure, length=None, *args, **kwargs):
+    def __init__(self, structure, *args, length=None, **kwargs):
         self.structure = structure
         self.length = length
 
@@ -273,4 +319,3 @@ class EnumField(BaseFieldMixin, Field):
         if hasattr(value, 'value'):
             value = value.value
         return self.base_field.to_stream(stream, value, context)
-

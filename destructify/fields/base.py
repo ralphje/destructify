@@ -5,7 +5,12 @@ from destructify.exceptions import StreamExhaustedError, UnknownDependentFieldEr
     MisalignedFieldError
 
 
-class NOT_PROVIDED:
+class _NOT_PROVIDED_META(type):
+    def __repr__(self):
+        return "NOT_PROVIDED"
+
+
+class NOT_PROVIDED(metaclass=_NOT_PROVIDED_META):
     pass
 
 
