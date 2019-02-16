@@ -1,6 +1,7 @@
 import io
 
 from . import Field, StreamExhaustedError, Substream, ParsingContext
+from ..exceptions import DefinitionError
 from .base import _retrieve_property
 
 
@@ -167,11 +168,17 @@ class StructureField(Field):
 class BaseFieldMixin(object):
     def __init__(self, base_field, *args, **kwargs):
         self.base_field = base_field
+
         super().__init__(*args, **kwargs)
+
+        if not isinstance(base_field, Field):
+            raise DefinitionError("You must initialize the base_field property of %s with a Field-type object, "
+                                  "not a %s." % (self.full_name, base_field.__class__.__name__))
 
     def contribute_to_class(self, cls, name):
         super().contribute_to_class(cls, name)
         self.base_field.name = name
+        self.base_field.bound_structure = cls
 
     @property
     def ctype(self):

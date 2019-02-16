@@ -1,6 +1,34 @@
 import unittest
 
-from destructify import Structure, BitField, FixedLengthField, StructureField, MisalignedFieldError
+from destructify import Structure, BitField, FixedLengthField, StructureField, MisalignedFieldError, ArrayField, \
+    DefinitionError, BaseFieldMixin, Field
+
+
+class BaseFieldTestCase(unittest.TestCase):
+    def test_wrong_initialization(self):
+        class MyField(BaseFieldMixin, Field):
+            pass
+
+        class Struct(Structure):
+            pass
+
+        with self.assertRaises(DefinitionError):
+            MyField(Struct)
+        with self.assertRaises(DefinitionError):
+            MyField(Struct())
+        with self.assertRaises(DefinitionError):
+            MyField(BitField)
+
+    def test_full_name_and_bound_structure(self):
+        class MyField(BaseFieldMixin, Field):
+            pass
+
+        class Struct(Structure):
+            thing = MyField(BitField(1))
+
+        self.assertEqual("thing", Struct._meta.fields[0].base_field.name)
+        self.assertEqual("Struct.thing", Struct._meta.fields[0].base_field.full_name)
+        self.assertIs(Struct._meta.fields[0].bound_structure, Struct._meta.fields[0].base_field.bound_structure)
 
 
 class BitFieldTestCase(unittest.TestCase):

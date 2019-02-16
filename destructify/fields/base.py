@@ -48,7 +48,9 @@ class Field:
 
     @property
     def full_name(self):
-        return self.bound_structure.__name__ + "." + self.name
+        if self.bound_structure is not None:
+            return self.bound_structure.__name__ + "." + self.name
+        return self.name
 
     def __len__(self):
         """You can call :const:`len` on a field to retrieve its byte length. It can either return a value that makes
