@@ -1,7 +1,8 @@
+import enum
 import unittest
 
 from destructify import Structure, BitField, FixedLengthField, StructureField, MisalignedFieldError, ArrayField, \
-    DefinitionError, BaseFieldMixin, Field
+    DefinitionError, BaseFieldMixin, Field, EnumField
 
 
 class BaseFieldTestCase(unittest.TestCase):
@@ -119,3 +120,21 @@ class StructureFieldTest(unittest.TestCase):
         s.s2.byte1 = b"\x03"
         s.s2.byte2 = b"\x04"
         self.assertEqual(b"\x01\x02\03\x04", s.to_bytes())
+
+
+class EnumFieldTest(unittest.TestCase):
+    def test_len(self):
+        self.assertEqual(1, len(EnumField(FixedLengthField(1), enum.Enum)))
+
+    def test_parsing(self):
+        class En(enum.Enum):
+            TEST = b'b'
+
+        class Struct(Structure):
+            byte1 = EnumField(FixedLengthField(1), En)
+
+        s = Struct.from_bytes(b"b")
+        self.assertEqual(En.TEST, s.byte1)
+
+        with self.assertRaises(ValueError):
+            Struct.from_bytes(b'a')

@@ -262,6 +262,9 @@ class EnumField(BaseFieldMixin, Field):
         self.enum = enum
         super().__init__(base_field, *args, **kwargs)
 
+    def __len__(self):
+        return self.base_field.__len__()
+
     def from_stream(self, stream, context=None):
         value, length = self.base_field.from_stream(stream, context)
         return self.enum(value), length
