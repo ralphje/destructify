@@ -57,14 +57,6 @@ example = EncapsulatingStructure.from_bytes(b"\x02\x01\x02\x01\x02\x01\x01")
 print(example.structs[0].numbers, example.structs[1].numbers)
 
 
-class ZeroTerminatedStructure(destructify.Structure):
-    zf = destructify.TerminatedField()
-
-example = ZeroTerminatedStructure.from_bytes(b"asdfasdfasdf\x00")
-print(ZeroTerminatedStructure.as_cstruct())
-print(example.zf)
-
-
 class AlignedStructure(destructify.Structure):
     length = destructify.UnsignedByteField(default=1)
 
@@ -80,63 +72,3 @@ class ArrayStructure(destructify.Structure):
 
 print(ArrayStructure.as_cstruct())
 print(len(ArrayStructure))
-
-
-class ConditionalStructure(destructify.Structure):
-    condition = destructify.ByteField()
-    value = destructify.ConditionalField(destructify.ShortField(), condition='condition')
-
-print(ConditionalStructure.from_bytes(b"\0"))
-print(bytes(ConditionalStructure.from_bytes(b"\0")))
-print(ConditionalStructure.from_bytes(b"\x01\0\x01"))
-print(bytes(ConditionalStructure.from_bytes(b"\x01\0\x01")))
-
-
-class Flags(enum.IntFlag):
-    R = 4
-    W = 2
-    X = 1
-
-
-class EnumStructure(destructify.Structure):
-    flag = destructify.EnumField(destructify.ByteField(), enum=Flags)
-
-print(EnumStructure.from_bytes(b"\0"))
-print(EnumStructure.from_bytes(b"\x05"))
-print(bytes(EnumStructure(flag=Flags.X | Flags.R | Flags.W)))
-
-
-class BitFieldStructure(destructify.Structure):
-    bit = destructify.BitField(length=3)
-    bit2 = destructify.BitField(length=8, realign=True)
-    f = destructify.UnsignedByteField()
-    bit3 = destructify.BitField(length=32)
-
-bf = BitFieldStructure.from_bytes(b"\xff\x00\xff\xff\x00\xff\x00")
-print(bf, bin(bf.bit), bin(bf.bit2), bin(bf.bit3))
-print(bytes(bf))
-bf = BitFieldStructure.from_bytes(bytes(bf))
-print(bf, bin(bf.bit), bin(bf.bit2), bin(bf.bit3))
-print(bytes(bf))
-
-
-class UnlimitedFixedLengthStructure(destructify.Structure):
-    text = destructify.FixedLengthField(length=-1)
-
-class UFLSStructure(destructify.Structure):
-    s = destructify.StructureField(UnlimitedFixedLengthStructure, length=5)
-
-ufls = UnlimitedFixedLengthStructure.from_bytes(b"\x01\x02\x03\x04\x05")
-print(ufls)
-ufls = UFLSStructure.from_bytes(b"\x01\x02\x03\x04\x05\x06")
-print(ufls)
-
-
-class ShortStructure(destructify.Structure):
-    text = destructify.FixedLengthField(length=3)
-
-class StructureThatSkips(destructify.Structure):
-    s = destructify.StructureField(ShortStructure, length=5)
-    text = destructify.FixedLengthField(length=3)
-
-print(StructureThatSkips.from_bytes(b"\x01\x02\x03\x04\x05\x06\x07\x08"))

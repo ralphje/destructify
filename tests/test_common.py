@@ -1,8 +1,9 @@
 import unittest
 
 from destructify import Structure, BitField, FixedLengthField, StructureField, MisalignedFieldError, \
-    FixedLengthStringField, TerminatedStringField, IntegerField
+    FixedLengthStringField, TerminatedStringField, IntegerField, TerminatedField
 from destructify.exceptions import DefinitionError, StreamExhaustedError, WriteError
+from tests import DestructifyTestCase
 
 
 class FixedLengthFieldTestCase(unittest.TestCase):
@@ -129,7 +130,30 @@ class FixedLengthFieldTestCase(unittest.TestCase):
         self.assertEqual(b'asdf', Struct(str1=b"asdf").to_bytes())
 
 
-class BitFieldTestCase(unittest.TestCase):
+class TerminatedFieldTest(DestructifyTestCase):
+    def test_simple_terminator(self):
+        self.assertFromStreamEqual(b"asdfasdf", TerminatedField(terminator=b'\0'), b'asdfasdf\0')
+        self.assertFromStreamEqual(b"", TerminatedField(terminator=b'\0'), b'\0')
+        with self.assertRaises(StreamExhaustedError):
+            self.call_from_stream(TerminatedField(terminator=b'\0'), b'asdfasdf')
+
+        self.assertToStreamEqual(b"\0", TerminatedField(terminator=b'\0'), b'')
+        self.assertToStreamEqual(b"asdf\0", TerminatedField(terminator=b'\0'), b'asdf')
+
+    def test_multibyte_terminator(self):
+        self.assertFromStreamEqual(b"asdfasdf", TerminatedField(terminator=b'\0\x91'), b'asdfasdf\0\x91')
+        self.assertFromStreamEqual(b"", TerminatedField(terminator=b'\0\x91'), b'\0\x91')
+
+        self.assertToStreamEqual(b"\0\x91", TerminatedField(terminator=b'\0\x91'), b'')
+        self.assertToStreamEqual(b"asdf\0\x91", TerminatedField(terminator=b'\0\x91'), b'asdf')
+
+    def test_multibyte_terminator_aligned(self):
+        self.assertFromStreamEqual(b"asdfasdf", TerminatedField(terminator=b'\0\0', step=2), b'asdfasdf\0\0')
+        with self.assertRaises(StreamExhaustedError):
+            self.call_from_stream(TerminatedField(terminator=b'\0\0', step=2), b'asdfasd\0\0')
+
+
+class BitFieldTest(unittest.TestCase):
     def test_parsing(self):
         class Struct(Structure):
             bit1 = BitField(length=3)
@@ -218,6 +242,30 @@ class StructureFieldTest(unittest.TestCase):
         s.s2.byte2 = b"\x04"
         self.assertEqual(b"\x01\x02\03\x04", s.to_bytes())
 
+    def test_unlimited_substructure(self):
+        class UnlimitedFixedLengthStructure(Structure):
+            text = FixedLengthField(length=-1)
+
+        class UFLSStructure(Structure):
+            s = StructureField(UnlimitedFixedLengthStructure, length=5)
+
+        ufls = UnlimitedFixedLengthStructure.from_bytes(b"\x01\x02\x03\x04\x05")
+        self.assertEqual(b"\x01\x02\x03\x04\x05", ufls.text)
+        ufls = UFLSStructure.from_bytes(b"\x01\x02\x03\x04\x05\x06")
+        self.assertEqual(b"\x01\x02\x03\x04\x05", ufls.s.text)
+
+    def test_structure_that_skips_bytes(self):
+        class ShortStructure(Structure):
+            text = FixedLengthField(length=3)
+
+        class StructureThatSkips(Structure):
+            s = StructureField(ShortStructure, length=5)
+            text = FixedLengthField(length=3)
+
+        s = StructureThatSkips.from_bytes(b"\x01\x02\x03\x04\x05\x06\x07\x08")
+        self.assertEqual(b"\x01\x02\x03", s.s.text)
+        self.assertEqual(b"\x06\x07\x08", s.text)
+
 
 class StringFieldsTest(unittest.TestCase):
     def test_parsing_fixed_length(self):
@@ -256,7 +304,7 @@ class StringFieldsTest(unittest.TestCase):
         self.assertEqual(b"b\0y\0e\0\0\0", TerminatedStringField(b'\0\0', encoding='utf-16-le').to_bytes("bye"))
 
 
-class IntegerFieldTest(unittest.TestCase):
+class IntegerFieldTest(DestructifyTestCase):
     def test_parsing(self):
         self.assertEqual(256, IntegerField(2, 'big').from_bytes(b'\x01\0'))
         self.assertEqual(1, IntegerField(2, 'little').from_bytes(b'\x01\0'))
@@ -265,13 +313,13 @@ class IntegerFieldTest(unittest.TestCase):
         self.assertEqual(-257, IntegerField(2, 'big', signed=True).from_bytes(b'\xfe\xff'))
 
     def test_writing(self):
-        self.assertEqual(b'\x01\0', IntegerField(2, 'big').to_bytes(256))
-        self.assertEqual(b'\x01\0', IntegerField(2, 'little').to_bytes(1))
-        self.assertEqual(b'\xff\xfe', IntegerField(2, 'little', signed=True).to_bytes(-257))
+        self.assertToStreamEqual(b'\x01\0', IntegerField(2, 'big'), 256)
+        self.assertToStreamEqual(b'\x01\0', IntegerField(2, 'little'), 1)
+        self.assertToStreamEqual(b'\xff\xfe', IntegerField(2, 'little', signed=True), -257)
         with self.assertRaises(OverflowError):
-            IntegerField(1, 'little').to_bytes(1000)
+            self.assertToStreamEqual(None, IntegerField(1, 'little'), 1000)
         with self.assertRaises(OverflowError):
-            IntegerField(1, 'little').to_bytes(-1000)
+            self.assertToStreamEqual(None, IntegerField(1, 'little'), -1000)
 
     def test_parsing_with_byte_order_on_structure(self):
         with self.assertRaises(DefinitionError):

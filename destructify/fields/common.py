@@ -142,7 +142,7 @@ class TerminatedField(Field):
         read = b""
         while True:
             c = context.read_stream(stream, self.step)
-            if not c:
+            if len(c) != self.step:
                 raise StreamExhaustedError("Could not parse field %s; did not find terminator %s" %
                                            (self.name, self.terminator))
             read += c
@@ -184,10 +184,18 @@ class IntegerField(FixedLengthField):
         super().__init__(length=length, *args, **kwargs)
 
     def from_bytes(self, value):
-        return int.from_bytes(super().from_bytes(value), self.byte_order, signed=self.signed)
+        val = super().from_bytes(value)
+        return int.from_bytes(val,
+                              byteorder='big' if not self.byte_order and len(val) == 1 else self.byte_order,
+                              signed=self.signed)
 
-    def to_bytes(self, value):
-        return super().to_bytes(value.to_bytes(self.length, self.byte_order, signed=self.signed))
+    def to_stream(self, stream, value, context=None):
+        # We can't use to_bytes here as we need the field's length.
+        length = self.get_length(context)
+        val = self.to_bytes(value.to_bytes(length,
+                                           byteorder='big' if not self.byte_order and length == 1 else self.byte_order,
+                                           signed=self.signed))
+        return context.write_stream(stream, val)
 
     def contribute_to_class(self, cls, name):
         super().contribute_to_class(cls, name)
@@ -197,9 +205,7 @@ class IntegerField(FixedLengthField):
             self.byte_order = self.bound_structure._meta.byte_order
 
         if self.byte_order is None:
-            if isinstance(self.length, int) and self.length == 1:
-                self.byte_order = 'little'  # doesn't matter what exactly we specify
-            else:
+            if not isinstance(self.length, int) or not self.length == 1:
                 raise DefinitionError("No byte_order for %s provided" % self.full_name)
 
 

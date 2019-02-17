@@ -26,7 +26,7 @@ def _retrieve_property(context, var, special_case_str=True):
         if len(inspect.signature(var).parameters) == 0:
             return var()
         return var(context)
-    elif special_case_str and isinstance(var, str):
+    elif special_case_str and context is not None and isinstance(var, str):
         return context[var]
     else:
         return var
