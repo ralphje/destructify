@@ -26,28 +26,28 @@ class BaseFieldMixin(object):
 class ArrayField(BaseFieldMixin, Field):
     """A field that repeats the provided base field multiple times."""
 
-    def __init__(self, base_field, size, *args, **kwargs):
-        self.size = size
+    def __init__(self, base_field, count, *args, **kwargs):
+        self.count = count
         super().__init__(base_field, *args, **kwargs)
 
     def __len__(self):
-        if isinstance(self.size, int):
-            return self.size * len(self.base_field)
+        if isinstance(self.count, int):
+            return self.count * len(self.base_field)
         else:
             return super().__len__()
 
-    def get_size(self, context):
-        return _retrieve_property(context, self.size)
+    def get_count(self, context):
+        return _retrieve_property(context, self.count)
 
     @property
     def ctype(self):
         ctype = self._ctype or self.base_field.ctype.split(" ")[0]
-        return "{} {}[{}]".format(ctype, self.name, "" if callable(self.size) else self.size)
+        return "{} {}[{}]".format(ctype, self.name, "" if callable(self.count) else self.count)
 
     def from_stream(self, stream, context=None):
         result = []
         total_consumed = 0
-        for i in range(0, self.get_size(context)):
+        for i in range(0, self.get_count(context)):
             res, consumed = self.base_field.from_stream(stream, context)
             total_consumed += consumed
             result.append(res)

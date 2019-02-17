@@ -432,7 +432,7 @@ ArrayField
 
       The field that is to be repeated.
 
-   .. attribute:: ArrayField.size
+   .. attribute:: ArrayField.count
 
       This specifies the amount of repetitions of the base field.
 
@@ -443,7 +443,7 @@ ArrayField
       * A string that represents the field name that contains the size
       * An integer
 
-      The size given a context is obtained by calling ``ArrayField.get_size(value, context)``.
+      The count given a context is obtained by calling ``ArrayField.get_count(value, context)``.
 
    Example usage::
 

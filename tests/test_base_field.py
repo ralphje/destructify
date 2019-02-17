@@ -2,7 +2,8 @@ import enum
 import unittest
 
 from destructify import Structure, BitField, FixedLengthField, DefinitionError, BaseFieldMixin, Field, EnumField, \
-    IntegerField, ByteField, ConditionalField
+    IntegerField, ByteField, ConditionalField, ArrayField
+from tests import DestructifyTestCase
 
 
 class BaseFieldTestCase(unittest.TestCase):
@@ -47,6 +48,26 @@ class ConditionalFieldTest(unittest.TestCase):
         self.assertEqual(1, cs.condition)
         self.assertEqual(1, cs.value)
         self.assertEqual(b"\x01\0\x01", bytes(cs))
+
+
+class ArrayFieldTest(DestructifyTestCase):
+    def test_basic(self):
+        self.assertFieldStreamEqual(b"\x02\x01\x00\x01", [513, 1], ArrayField(IntegerField(2, 'big'), count=2))
+
+    def test_count_from_other_field(self):
+        class SubStructure(Structure):
+            length = IntegerField(1, signed=False)
+            numbers = ArrayField(FixedLengthField(length=lambda s: s.length), count='length')
+
+        s = SubStructure.from_bytes(b"\x02\x01\x02\x01\x02")
+        self.assertEqual([b'\x01\x02', b'\x01\x02'], s.numbers)
+        self.assertEqual(b"\x02\x01\x02\x01\x02", bytes(SubStructure(length=2, numbers=[b'\x01\x02', b'\x01\x02'])))
+        s = SubStructure.from_bytes(b"\x01\x01")
+        self.assertEqual([b'\x01'], s.numbers)
+        self.assertEqual(b"\x01\x01", bytes(SubStructure(length=1, numbers=[b'\x01'])))
+
+    def test_len(self):
+        self.assertEqual(50, len(ArrayField(IntegerField(2, 'big'), count=25)))
 
 
 class EnumFieldTest(unittest.TestCase):

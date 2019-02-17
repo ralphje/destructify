@@ -132,25 +132,25 @@ class FixedLengthFieldTestCase(unittest.TestCase):
 
 class TerminatedFieldTest(DestructifyTestCase):
     def test_simple_terminator(self):
-        self.assertFromStreamEqual(b"asdfasdf", TerminatedField(terminator=b'\0'), b'asdfasdf\0')
-        self.assertFromStreamEqual(b"", TerminatedField(terminator=b'\0'), b'\0')
+        self.assertFieldFromStreamEqual(b"asdfasdf", TerminatedField(terminator=b'\0'), b'asdfasdf\0')
+        self.assertFieldFromStreamEqual(b"", TerminatedField(terminator=b'\0'), b'\0')
         with self.assertRaises(StreamExhaustedError):
-            self.call_from_stream(TerminatedField(terminator=b'\0'), b'asdfasdf')
+            self.call_field_from_stream(TerminatedField(terminator=b'\0'), b'asdfasdf')
 
-        self.assertToStreamEqual(b"\0", TerminatedField(terminator=b'\0'), b'')
-        self.assertToStreamEqual(b"asdf\0", TerminatedField(terminator=b'\0'), b'asdf')
+        self.assertFieldToStreamEqual(b"\0", TerminatedField(terminator=b'\0'), b'')
+        self.assertFieldToStreamEqual(b"asdf\0", TerminatedField(terminator=b'\0'), b'asdf')
 
     def test_multibyte_terminator(self):
-        self.assertFromStreamEqual(b"asdfasdf", TerminatedField(terminator=b'\0\x91'), b'asdfasdf\0\x91')
-        self.assertFromStreamEqual(b"", TerminatedField(terminator=b'\0\x91'), b'\0\x91')
+        self.assertFieldFromStreamEqual(b"asdfasdf", TerminatedField(terminator=b'\0\x91'), b'asdfasdf\0\x91')
+        self.assertFieldFromStreamEqual(b"", TerminatedField(terminator=b'\0\x91'), b'\0\x91')
 
-        self.assertToStreamEqual(b"\0\x91", TerminatedField(terminator=b'\0\x91'), b'')
-        self.assertToStreamEqual(b"asdf\0\x91", TerminatedField(terminator=b'\0\x91'), b'asdf')
+        self.assertFieldToStreamEqual(b"\0\x91", TerminatedField(terminator=b'\0\x91'), b'')
+        self.assertFieldToStreamEqual(b"asdf\0\x91", TerminatedField(terminator=b'\0\x91'), b'asdf')
 
     def test_multibyte_terminator_aligned(self):
-        self.assertFromStreamEqual(b"asdfasdf", TerminatedField(terminator=b'\0\0', step=2), b'asdfasdf\0\0')
+        self.assertFieldFromStreamEqual(b"asdfasdf", TerminatedField(terminator=b'\0\0', step=2), b'asdfasdf\0\0')
         with self.assertRaises(StreamExhaustedError):
-            self.call_from_stream(TerminatedField(terminator=b'\0\0', step=2), b'asdfasd\0\0')
+            self.call_field_from_stream(TerminatedField(terminator=b'\0\0', step=2), b'asdfasd\0\0')
 
 
 class BitFieldTest(unittest.TestCase):
@@ -313,13 +313,13 @@ class IntegerFieldTest(DestructifyTestCase):
         self.assertEqual(-257, IntegerField(2, 'big', signed=True).from_bytes(b'\xfe\xff'))
 
     def test_writing(self):
-        self.assertToStreamEqual(b'\x01\0', IntegerField(2, 'big'), 256)
-        self.assertToStreamEqual(b'\x01\0', IntegerField(2, 'little'), 1)
-        self.assertToStreamEqual(b'\xff\xfe', IntegerField(2, 'little', signed=True), -257)
+        self.assertFieldToStreamEqual(b'\x01\0', IntegerField(2, 'big'), 256)
+        self.assertFieldToStreamEqual(b'\x01\0', IntegerField(2, 'little'), 1)
+        self.assertFieldToStreamEqual(b'\xff\xfe', IntegerField(2, 'little', signed=True), -257)
         with self.assertRaises(OverflowError):
-            self.assertToStreamEqual(None, IntegerField(1, 'little'), 1000)
+            self.assertFieldToStreamEqual(None, IntegerField(1, 'little'), 1000)
         with self.assertRaises(OverflowError):
-            self.assertToStreamEqual(None, IntegerField(1, 'little'), -1000)
+            self.assertFieldToStreamEqual(None, IntegerField(1, 'little'), -1000)
 
     def test_parsing_with_byte_order_on_structure(self):
         with self.assertRaises(DefinitionError):

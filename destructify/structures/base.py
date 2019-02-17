@@ -70,6 +70,14 @@ class Structure(metaclass=StructureBase):
             values.append("%s=%r" % (field.name, getattr(self, field.name)))
         return '%s(%s)' % (self.__class__.__name__, ", ".join(values))
 
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__) or not isinstance(self, other.__class__):
+            return NotImplemented
+        for field in self._meta.fields:
+            if getattr(self, field.name) != getattr(other, field.name):
+                return False
+        return True
+
     def __bytes__(self):
         return self.to_bytes()
 
