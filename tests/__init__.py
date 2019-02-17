@@ -28,4 +28,4 @@ class DestructifyTestCase(unittest.TestCase):
 
     def assertStructureStreamEqual(self, expected_bytes, expected_structure):
         self.assertEqual(expected_structure, expected_structure.__class__.from_bytes(expected_bytes))
-        self.assertEqual(expected_structure, bytes(expected_bytes))
+        self.assertEqual(expected_bytes, bytes(expected_structure))

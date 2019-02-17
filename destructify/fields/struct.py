@@ -1,7 +1,7 @@
 import struct
 
 from destructify.exceptions import DefinitionError
-from . import FixedLengthField, NOT_PROVIDED
+from . import FixedLengthField
 
 
 BYTE_ORDER_MAPPING = {
@@ -36,16 +36,18 @@ class StructField(FixedLengthField):
     format = None
     byte_order = ""
 
-    def __init__(self, format=NOT_PROVIDED, byte_order=NOT_PROVIDED, *args, **kwargs):
+    def __init__(self, format=None, byte_order=None, *args, multibyte=False, **kwargs):
 
-        if format is not NOT_PROVIDED:
+        if format is not None:
             self.format = format
-        if byte_order is not NOT_PROVIDED:
-            self.byte_order = byte_order
+        if byte_order is not None:
+            self.byte_order = BYTE_ORDER_MAPPING[byte_order]
+
+        self.multibyte = multibyte
 
         if self.format[0] in "@=<>!":
             if not self.byte_order:
-                self.byte_order = self.format[0]
+                self.byte_order = BYTE_ORDER_MAPPING[self.format[0]]
             self.format = self.format[1:]
 
         self._struct = struct.Struct(self.byte_order + self.format)
@@ -65,11 +67,15 @@ class StructField(FixedLengthField):
                 self.length = self._struct.size
 
     def from_bytes(self, value):
+        if self.multibyte:
+            return self._struct.unpack(value)
         return self._struct.unpack(value)[0]
 
     def to_bytes(self, value):
         if value is None:
             value = 0
+        if self.multibyte:
+            return self._struct.pack(*value)
         return self._struct.pack(value)
 
 
