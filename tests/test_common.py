@@ -2,6 +2,131 @@ import unittest
 
 from destructify import Structure, BitField, FixedLengthField, StructureField, MisalignedFieldError, \
     FixedLengthStringField, TerminatedStringField, IntegerField
+from destructify.exceptions import DefinitionError, StreamExhaustedError, WriteError
+
+
+class FixedLengthFieldTestCase(unittest.TestCase):
+    def test_parsing(self):
+        class Struct(Structure):
+            str1 = FixedLengthField(length=3)
+            str2 = FixedLengthField(length=1)
+
+        s = Struct.from_bytes(b"abcd")
+        self.assertEqual(b"abc", s.str1)
+        self.assertEqual(b"d", s.str2)
+
+    def test_parsing_with_length_from_other_field(self):
+        class Struct(Structure):
+            len = IntegerField(length=1, byte_order='little')
+            str1 = FixedLengthField(length='len')
+
+        s = Struct.from_bytes(b"\x01a")
+        self.assertEqual(1, s.len)
+        self.assertEqual(b'a', s.str1)
+        s = Struct.from_bytes(b"\x02ab")
+        self.assertEqual(2, s.len)
+        self.assertEqual(b'ab', s.str1)
+
+    def test_parsing_with_too_little_bytes(self):
+        class Struct(Structure):
+            str1 = FixedLengthField(length=3)
+
+        with self.assertRaises(StreamExhaustedError):
+            Struct.from_bytes(b"ab")
+
+        class Struct2(Structure):
+            str1 = FixedLengthField(length=3, strict=False)
+
+        self.assertEqual(b"ab", Struct2.from_bytes(b"ab").str1)
+
+    def test_writing(self):
+        class Struct(Structure):
+            str1 = FixedLengthField(length=3)
+
+        with self.assertRaises(WriteError):
+            Struct(str1=b'hello').to_bytes()
+        with self.assertRaises(WriteError):
+            Struct(str1=b'he').to_bytes()
+        self.assertEqual(b'hey', Struct(str1=b'hey').to_bytes())
+
+        class Struct2(Structure):
+            str1 = FixedLengthField(length=3, strict=False)
+        self.assertEqual(b'hel', Struct2(str1=b'hello').to_bytes())
+
+    def test_writing_with_length_from_other_field(self):
+        class Struct(Structure):
+            len = IntegerField(length=1, byte_order='little')
+            str1 = FixedLengthField(length='len')
+
+        self.assertEqual(b'\x05hello', Struct(str1=b'hello').to_bytes())
+        self.assertEqual(b'\x05hello', Struct(length=1, str1=b'hello').to_bytes())
+
+    def test_writing_with_length_from_other_field_that_has_override(self):
+        class Struct(Structure):
+            len = IntegerField(length=1, byte_order='little', override=lambda c, v: v)
+            str1 = FixedLengthField(length='len')
+
+        self.assertEqual(b'\x05hello', Struct(len=5, str1=b'hello').to_bytes())
+
+        with self.assertRaises(Exception):
+            Struct(str1=b'hello').to_bytes()
+
+    def test_parsing_with_padding(self):
+        class Struct(Structure):
+            str1 = FixedLengthField(length=10, padding=b'\0')
+
+        self.assertEqual(b'hello', Struct.from_bytes(b"hello\0\0\0\0\0").str1)
+        self.assertEqual(b'hello\0\0\0\0\x01', Struct.from_bytes(b"hello\0\0\0\0\x01").str1)
+
+        class Struct2(Structure):
+            str1 = FixedLengthField(length=10, padding=b'\x01\x02')
+
+        self.assertEqual(b'hello\0', Struct2.from_bytes(b"hello\0\x01\x02\x01\x02").str1)
+        self.assertEqual(b'hello\0\x01\x02\x01a', Struct2.from_bytes(b"hello\0\x01\x02\x01a").str1)
+
+    def test_writing_with_padding(self):
+        class Struct(Structure):
+            str1 = FixedLengthField(length=10, padding=b'\0')
+
+        self.assertEqual(b'hello\0\0\0\0\0', Struct(str1=b"hello").to_bytes())
+        self.assertEqual(b'hellohello', Struct(str1=b"hellohello").to_bytes())
+
+        class Struct2(Structure):
+            str1 = FixedLengthField(length=10, padding=b'\x01\x02')
+
+        self.assertEqual(b'hello\0\x01\x02\x01\x02', Struct2(str1=b"hello\0").to_bytes())
+        with self.assertRaises(WriteError):
+            Struct2(str1=b"hello").to_bytes()
+        with self.assertRaises(WriteError):
+            Struct2(str1=b"hellohellohello").to_bytes()
+
+    def test_writing_with_padding_not_strict(self):
+        class Struct2(Structure):
+            str1 = FixedLengthField(length=10, padding=b'\x01\x02', strict=False)
+
+        self.assertEqual(b'hello\x01\x02\x01\x02\x01', Struct2(str1=b"hello").to_bytes())
+        self.assertEqual(b'hellohello', Struct2(str1=b"hellohellohello").to_bytes())
+
+    def test_writing_and_parsing_with_padding_zero_length(self):
+        class Struct(Structure):
+            str1 = FixedLengthField(length=0, padding=b'\0')
+
+        self.assertEqual(b'', Struct.from_bytes(b'asdf').str1)
+        self.assertEqual(b'', Struct(str1=b"").to_bytes())
+
+    def test_writing_and_parsing_negative_length(self):
+        class Struct(Structure):
+            str1 = FixedLengthField(length=-1)
+
+        self.assertEqual(b'asdf', Struct.from_bytes(b'asdf').str1)
+        self.assertEqual(b'asdf', Struct(str1=b"asdf").to_bytes())
+
+    def test_writing_and_parsing_negative_length_and_padding(self):
+        class Struct(Structure):
+            str1 = FixedLengthField(length=-1, padding=b'\0')
+
+        self.assertEqual(b'asdf', Struct.from_bytes(b'asdf').str1)
+        self.assertEqual(b'asdf', Struct(str1=b"asdf").to_bytes())
 
 
 class BitFieldTestCase(unittest.TestCase):
@@ -11,8 +136,8 @@ class BitFieldTestCase(unittest.TestCase):
             bit2 = BitField(length=8)
 
         s = Struct.from_bytes(b"\xFF\xFF")
-        self.assertEqual(s.bit1, 0b111)
-        self.assertEqual(s.bit2, 0b11111111)
+        self.assertEqual(0b111, s.bit1)
+        self.assertEqual(0b11111111, s.bit2)
 
     def test_writing(self):
         class Struct(Structure):
@@ -54,9 +179,9 @@ class BitFieldTestCase(unittest.TestCase):
             byte = FixedLengthField(length=1)
 
         s = Struct.from_bytes(b"\xFF\xFF")
-        self.assertEqual(s.bit1, 1)
-        self.assertEqual(s.bit2, 1)
-        self.assertEqual(s.byte, b'\xFF')
+        self.assertEqual(1, s.bit1)
+        self.assertEqual(1, s.bit2)
+        self.assertEqual(b'\xFF', s.byte)
 
         self.assertEqual(b"\xc0\x33", Struct(bit1=1, bit2=1, byte=b'\x33').to_bytes())
 
@@ -147,3 +272,22 @@ class IntegerFieldTest(unittest.TestCase):
             IntegerField(1, 'little').to_bytes(1000)
         with self.assertRaises(OverflowError):
             IntegerField(1, 'little').to_bytes(-1000)
+
+    def test_parsing_with_byte_order_on_structure(self):
+        with self.assertRaises(DefinitionError):
+            class Struct(Structure):
+                num = IntegerField(2)
+
+        class Struct2(Structure):
+            num = IntegerField(2)
+            class Meta:
+                byte_order = 'little'
+
+        self.assertEqual(513, Struct2.from_bytes(b"\x01\x02").num)
+
+        class Struct3(Structure):
+            num = IntegerField(2)
+            class Meta:
+                byte_order = 'big'
+
+        self.assertEqual(258, Struct3.from_bytes(b"\x01\x02").num)

@@ -6,15 +6,13 @@ from .base import _retrieve_property
 
 
 class FixedLengthField(Field):
-    """Field with a fixed length. It reads exactly the amount of bytes as specified in the length attribute, and
-    returns the read bytes directly. Writing is unaffected by the length property.
+    """Field with a fixed length. It reads exactly the amount of bytes as specified in the length attribute.
     """
 
-    def __init__(self, length, *args, strict=True, padding=None, step=1, **kwargs):
+    def __init__(self, length, *args, strict=True, padding=None, **kwargs):
         self.length = length
         self.strict = strict
         self.padding = padding
-        self.step = step
         super().__init__(*args, **kwargs)
 
     def __len__(self):
@@ -49,12 +47,12 @@ class FixedLengthField(Field):
                                        (self.full_name, length, len(read)))
 
         # Remove padding
-        value = self.from_bytes(read)
+        value = read
         if self.padding is not None:
-            while value[-self.step:] == self.padding:
-                value = value[:-self.step]
+            while value[-len(self.padding):] == self.padding:
+                value = value[:-len(self.padding)]
 
-        return value, len(read)
+        return self.from_bytes(value), len(read)
 
     def to_stream(self, stream, value, context=None):
         length = self.get_length(context)
@@ -69,9 +67,9 @@ class FixedLengthField(Field):
             if self.padding is not None:
                 remaining = length - len(val)
 
-                if self.strict and remaining % self.step != 0:
+                if self.strict and remaining % len(self.padding) != 0:
                     raise WriteError("The field %s must be padded, but the remaining bytes %d are not a multiple of %d." %
-                                     (self.full_name, remaining, self.step))
+                                     (self.full_name, remaining, len(self.padding)))
 
                 # slicing for paddings longer than 1 byte
                 val = (val + self.padding * remaining)[:length]
@@ -85,7 +83,7 @@ class FixedLengthField(Field):
 
             val = val[:length]
 
-        return super().to_stream(stream, val, context)
+        return context.write_stream(stream, val)
 
 
 class BitField(FixedLengthField):
@@ -196,10 +194,10 @@ class IntegerField(FixedLengthField):
 
         # If byte_order is specified in the meta of the structure, we change our own default byte order (if not set)
         if self.bound_structure._meta.byte_order and not self.byte_order:
-            try:
-                self.byte_order = self.bound_structure._meta.byte_order
-            except KeyError:
-                raise DefinitionError("byte_order %s is invalid" % self.bound_structure._meta.byte_order)
+            self.byte_order = self.bound_structure._meta.byte_order
+
+        if self.byte_order is None:
+            raise DefinitionError("No byte_order for %s provided" % self.full_name)
 
 
 class StructureField(Field):

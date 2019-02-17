@@ -103,6 +103,7 @@ class Structure(metaclass=StructureBase):
             values[field.name] = field.get_final_value(getattr(self, field.name), context)
 
         values = self.finalize(values)
+        context.parsed_fields = values
 
         total_written = 0
         for field in self._meta.fields:

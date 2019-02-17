@@ -108,12 +108,14 @@ Base field
 
 Byte fields
 ===========
+FixedLengthField
+----------------
 .. autoclass:: FixedLengthField
 
    .. attribute:: FixedLengthField.length
 
-      This specifies the length of the field. This is the amount of data that is read from the stream. It does not
-      affect the amount of data that is written, however.
+      This specifies the length of the field. This is the amount of data that is read from the stream and written to
+      the stream.
 
       You can set it to one of the following:
 
@@ -130,28 +132,6 @@ Byte fields
 
       The length given a context is obtained by calling ``FixedLengthField.get_length(value, context)``.
 
-   .. attribute:: FixedLengthField.strict
-
-      This boolean (defaults to :const:`True`) enables raising errors in the following cases:
-
-      * A :class:`StreamExhaustedError` when there are not sufficient bytes to completely fill the field while reading.
-      * A :class:`WriteError` when there are not sufficient bytes to fill the field while writing and
-        :attr:`FixedLengthField.padding` is not set.
-      * A :class:`WriteError` when the field must be padded, but the bytes that are to be written do not align with
-        :attr:`FixedLengthField.step`.
-      * A :class:`WriteError` when there are too many bytes to fit in the field while writing.
-
-      Disabling :attr:`FixedLengthField.strict` is not recommended, as this may cause inadvertent errors.
-
-   .. attribute:: FixedLengthField.padding
-
-      When set, this value is used to pad the bytes to fill the entire field while writing, and chop this off the
-      value while reading. Padding is removed right to left.
-
-   .. attribute:: FixedLengthField.step
-
-      The step size to use while scanning the field to chop off the padding.
-
    When the class is initialized on a :class:`Structure`, and the length property is specified using a string, the
    default implementation of the :attr:`Field.override` on the named attribute of the :class:`Structure` is changed
    to match the length of the value in this :class:`Field`.
@@ -167,6 +147,33 @@ Byte fields
        b'\x01123456'
 
    This behaviour can be changed by manually specifying a different :attr:`Field.override` on ``length``.
+
+   .. attribute:: FixedLengthField.strict
+
+      This boolean (defaults to :const:`True`) enables raising errors in the following cases:
+
+      * A :class:`StreamExhaustedError` when there are not sufficient bytes to completely fill the field while reading.
+      * A :class:`WriteError` when there are not sufficient bytes to fill the field while writing and
+        :attr:`padding` is not set.
+      * A :class:`WriteError` when the field must be padded, but the bytes that are to be written are not a multiple of
+        the size of :attr:`padding`.
+      * A :class:`WriteError` when there are too many bytes to fit in the field while writing.
+
+      Disabling :attr:`FixedLengthField.strict` is not recommended, as this may cause inadvertent errors.
+
+   .. attribute:: FixedLengthField.padding
+
+      When set, this value is used to pad the bytes to fill the entire field while writing, and chop this off the
+      value while reading. Padding is removed right to left and must be aligned to the end of the value (which matters
+      for multibyte paddings).
+
+      While writing in :attr:`strict` mode, and the remaining bytes are not a multiple of the length of this value,
+      a :class:`WriteError` is raised. If :attr:`strict` mode is not enabled, the padding will simply be appended to the
+      value and chopped of whenever required. However, this can't be parsed back by Destructify (as the padding is not
+      aligned to the end of the structure).
+
+TerminatedField
+---------------
 
 .. autoclass:: TerminatedField
 
@@ -218,11 +225,15 @@ Both string fields have the following attributes:
 Numeric fields
 ==============
 
+IntegerField
+------------
+
+.. note::
+   The :class:`IntegerField` is not to be confused with the :class:`IntField`, which is based on :class:`StructField`.
+   For readability, you are recommended to use the :class:`IntegerField` whenever possible.
+
 .. autoclass:: IntegerField
 
-   .. note::
-      The :class:`IntegerField` is not to be confused with the :class:`IntField`, which is based on :class:`StructField`.
-      For readability, you are recommended to use the :class:`IntegerField` whenever possible.
 
    .. attribute:: IntegerField.length
 
@@ -238,6 +249,8 @@ Numeric fields
 
       Boolean indicating whether the integer is to be interpreted as a signed or unsigned integer.
 
+BitField
+--------
 
 .. autoclass:: BitField
 
@@ -275,6 +288,9 @@ Struct fields
 =============
 Destructify allows you to use 'classic' :mod:`struct` constructs as well.
 
+StructField
+-----------
+
 .. autoclass:: StructField
 
    .. attribute:: StructField.format
@@ -290,6 +306,9 @@ Destructify allows you to use 'classic' :mod:`struct` constructs as well.
 
       The byte order to use for the struct. If this is not specified, an none is provided in the :attr:`format` field,
       it defaults to the ``byte_order`` specified in the meta of the Structure.
+
+Subclasses of StructField
+-------------------------
 
 This project also provides a smorgasbord of several default implementations for the different types of structs. First
 off, there are four different kinds of base classes for the different byte orders:
@@ -377,6 +396,10 @@ Each of the classes is listed in the table below.
 
 Other fields
 ============
+
+StructureField
+--------------
+
 .. autoclass:: StructureField
 
    .. attribute:: StructureField.structure
@@ -399,6 +422,9 @@ Other fields
        >>> s.bar.foo
        b'hello world'
 
+
+ArrayField
+----------
 
 .. autoclass:: ArrayField
 
@@ -429,6 +455,8 @@ Other fields
        >>> s.foo
        [b'hello', b'world']
 
+ConditionalField
+----------------
 .. autoclass:: ConditionalField
 
    .. attribute:: ConditionalField.base_field
@@ -448,6 +476,8 @@ Other fields
 
       The condition given a context is obtained by calling ``ConditionalField.get_condition(value, context)``.
 
+EnumField
+---------
 .. autoclass:: EnumField
 
    .. attribute:: EnumField.base_field

@@ -19,10 +19,10 @@ class ParsingContext:
         fields.
         """
 
-        if self.structure and hasattr(self.structure, name):
-            return getattr(self.structure, name)
-        elif self.parsed_fields and name in self.parsed_fields:
+        if self.parsed_fields and name in self.parsed_fields:
             return self.parsed_fields[name]
+        elif self.structure and hasattr(self.structure, name):
+            return getattr(self.structure, name)
         else:
             raise UnknownDependentFieldError("Dependent field %s is not loaded yet, so can't be used." % name)
 
