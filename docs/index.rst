@@ -31,6 +31,7 @@ Contents:
    :maxdepth: 2
 
    fields
+   changelog
 
 
 
