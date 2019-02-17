@@ -24,3 +24,7 @@ class UnknownDependentFieldError(ParseError):
 
 class MisalignedFieldError(ParseError):
     pass
+
+
+class WriteError(DestructifyError):
+    pass

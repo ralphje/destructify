@@ -132,8 +132,25 @@ Byte fields
 
    .. attribute:: FixedLengthField.strict
 
-      When set, the field will not raise a :class:`StreamExhaustedError` when there are not sufficient bytes to
-      completely fill the field.
+      This boolean (defaults to :const:`True`) enables raising errors in the following cases:
+
+      * A :class:`StreamExhaustedError` when there are not sufficient bytes to completely fill the field while reading.
+      * A :class:`WriteError` when there are not sufficient bytes to fill the field while writing and
+        :attr:`FixedLengthField.padding` is not set.
+      * A :class:`WriteError` when the field must be padded, but the bytes that are to be written do not align with
+        :attr:`FixedLengthField.step`.
+      * A :class:`WriteError` when there are too many bytes to fit in the field while writing.
+
+      Disabling :attr:`FixedLengthField.strict` is not recommended, as this may cause inadvertent errors.
+
+   .. attribute:: FixedLengthField.padding
+
+      When set, this value is used to pad the bytes to fill the entire field while writing, and chop this off the
+      value while reading. Padding is removed right to left.
+
+   .. attribute:: FixedLengthField.step
+
+      The step size to use while scanning the field to chop off the padding.
 
    When the class is initialized on a :class:`Structure`, and the length property is specified using a string, the
    default implementation of the :attr:`Field.override` on the named attribute of the :class:`Structure` is changed

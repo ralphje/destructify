@@ -18,7 +18,7 @@ def _retrieve_property(context, var, special_case_str=True):
     """Retrieves a property:
 
     * If the property is callable, and has 0 parameters, it is called without arguments
-    * If the property is callable, and has 0 parameters, it is called with argument context
+    * If the property is callable, and has >=1 parameters, it is called with argument context
     * If special_case_str=True and var is a str, context[var] is returned
     * Otherwise var is returned
     """

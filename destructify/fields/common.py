@@ -1,7 +1,7 @@
 import io
 
 from . import Field, StreamExhaustedError, Substream, ParsingContext, NOT_PROVIDED
-from ..exceptions import DefinitionError
+from ..exceptions import DefinitionError, WriteError
 from .base import _retrieve_property
 
 
@@ -10,9 +10,11 @@ class FixedLengthField(Field):
     returns the read bytes directly. Writing is unaffected by the length property.
     """
 
-    def __init__(self, length, *args, strict=True, **kwargs):
+    def __init__(self, length, *args, strict=True, padding=None, step=1, **kwargs):
         self.length = length
         self.strict = strict
+        self.padding = padding
+        self.step = step
         super().__init__(*args, **kwargs)
 
     def __len__(self):
@@ -45,7 +47,45 @@ class FixedLengthField(Field):
         if len(read) < length and self.strict:
             raise StreamExhaustedError("Could not parse field %s, trying to read %s bytes, but only %s read." %
                                        (self.full_name, length, len(read)))
-        return self.from_bytes(read), len(read)
+
+        # Remove padding
+        value = self.from_bytes(read)
+        if self.padding is not None:
+            while value[-self.step:] == self.padding:
+                value = value[:-self.step]
+
+        return value, len(read)
+
+    def to_stream(self, stream, value, context=None):
+        length = self.get_length(context)
+
+        if length < 0:
+            # For negative lengths, we just write to the stream
+            return super().to_stream(stream, value, context)
+
+        val = self.to_bytes(value)
+
+        if len(val) < length:
+            if self.padding is not None:
+                remaining = length - len(val)
+
+                if self.strict and remaining % self.step != 0:
+                    raise WriteError("The field %s must be padded, but the remaining bytes %d are not a multiple of %d." %
+                                     (self.full_name, remaining, self.step))
+
+                # slicing for paddings longer than 1 byte
+                val = (val + self.padding * remaining)[:length]
+            elif self.strict:
+                raise WriteError("The contents of %s are %d long, but expecting %d." %
+                                 (self.full_name, len(val), length))
+        elif len(val) > length:
+            if self.strict:
+                raise WriteError("The contents of %s are %d long, but expecting %d." %
+                                 (self.full_name, len(val), length))
+
+            val = val[:length]
+
+        return super().to_stream(stream, val, context)
 
 
 class BitField(FixedLengthField):
