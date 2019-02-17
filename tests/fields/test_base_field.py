@@ -51,8 +51,14 @@ class ConditionalFieldTest(unittest.TestCase):
 
 
 class ArrayFieldTest(DestructifyTestCase):
-    def test_basic(self):
+    def test_count(self):
         self.assertFieldStreamEqual(b"\x02\x01\x00\x01", [513, 1], ArrayField(IntegerField(2, 'big'), count=2))
+
+    def test_length(self):
+        self.assertFieldStreamEqual(b"\x02\x01\x00\x01", [513, 1], ArrayField(IntegerField(2, 'big'), length=4))
+        self.assertFieldStreamEqual(b"\x02\x01\x00\x01", [b"\x02\x01\x00\x01"], ArrayField(FixedLengthField(-1), length=4))
+        self.assertFieldStreamEqual(b"\x02\x01\x00\x01", [b"\x02\x01", b"\x00\x01"], ArrayField(FixedLengthField(2), length=4))
+        self.assertFieldStreamEqual(b"\x02\x01\x00\x01", [b"\x02\x01", b"\x00\x01"], ArrayField(FixedLengthField(2), length=-1))
 
     def test_count_from_other_field(self):
         class SubStructure(Structure):

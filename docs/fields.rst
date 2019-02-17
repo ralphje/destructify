@@ -445,11 +445,27 @@ ArrayField
 
       The count given a context is obtained by calling ``ArrayField.get_count(value, context)``.
 
+   .. attribute:: ArrayField.length
+
+      This specifies the size of the field, if you do not know the count of the fields, but do know the size.
+
+      You can set it to one of the following:
+
+      * A callable with zero arguments
+      * A callable taking a :class:`ParsingContext` object
+      * A string that represents the field name that contains the size
+      * An integer
+
+      The length given a context is obtained by calling ``ArrayField.get_length(value, context)``.
+
+      You can specify a negative length if you want to read until the stream ends. Note that this is currently
+      implemented by swallowing a :class:`StreamExhaustedError` from the base field.
+
    Example usage::
 
        >>> class ArrayStructure(Structure):
        ...     count = UnsignedByteField()
-       ...     foo = ArrayField(TerminatedField(terminator=b'\0'), size='count')
+       ...     foo = ArrayField(TerminatedField(terminator=b'\0'), count='count')
        ...
        >>> s = ArrayStructure.from_bytes(b"\x02hello\0world\0")
        >>> s.foo
