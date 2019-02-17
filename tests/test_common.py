@@ -59,7 +59,7 @@ class FixedLengthFieldTestCase(unittest.TestCase):
             str1 = FixedLengthField(length='len')
 
         self.assertEqual(b'\x05hello', Struct(str1=b'hello').to_bytes())
-        self.assertEqual(b'\x05hello', Struct(length=1, str1=b'hello').to_bytes())
+        self.assertEqual(b'\x01h', Struct(len=1, str1=b'h').to_bytes())
 
     def test_writing_with_length_from_other_field_that_has_override(self):
         class Struct(Structure):
@@ -291,3 +291,10 @@ class IntegerFieldTest(unittest.TestCase):
                 byte_order = 'big'
 
         self.assertEqual(258, Struct3.from_bytes(b"\x01\x02").num)
+
+    def test_parsing_and_writing_without_byte_order_single_byte(self):
+        class Struct(Structure):
+            num = IntegerField(1)
+
+        self.assertEqual(1, Struct.from_bytes(b"\x01").num)
+        self.assertEqual(b'\x01', Struct(num=1).to_bytes())

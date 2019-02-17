@@ -197,7 +197,10 @@ class IntegerField(FixedLengthField):
             self.byte_order = self.bound_structure._meta.byte_order
 
         if self.byte_order is None:
-            raise DefinitionError("No byte_order for %s provided" % self.full_name)
+            if isinstance(self.length, int) and self.length == 1:
+                self.byte_order = 'little'  # doesn't matter what exactly we specify
+            else:
+                raise DefinitionError("No byte_order for %s provided" % self.full_name)
 
 
 class StructureField(Field):
