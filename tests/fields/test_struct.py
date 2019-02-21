@@ -1,6 +1,6 @@
 import unittest
 
-from destructify import Structure, IntField, StructField, BEIntField, LEIntField
+from destructify import Structure, IntField, StructField
 from tests import DestructifyTestCase
 
 
@@ -17,8 +17,8 @@ class StructFieldTest(DestructifyTestCase):
                                     StructField("<II", multibyte=True))
 
     def test_subclass(self):
-        self.assertFieldStreamEqual(b"\x01\x02\x03\x04", 0x04030201, LEIntField())
-        self.assertFieldStreamEqual(b"\x01\x02\x03\x04", 0x01020304, BEIntField())
+        self.assertFieldStreamEqual(b"\x01\x02\x03\x04", 0x04030201, IntField(byte_order='little'))
+        self.assertFieldStreamEqual(b"\x01\x02\x03\x04", 0x01020304, IntField(byte_order='big'))
 
     def test_endianness_from_structure(self):
         class TestStructure(Structure):

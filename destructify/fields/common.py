@@ -29,7 +29,7 @@ class BytesField(Field):
     def ctype(self):
         if self._ctype:
             return "{} {}".format(self._ctype, self.name)
-        elif self.length:
+        elif self.length is not None:
             return "{} {}[{}]".format(self.__class__.__name__, self.name, "" if callable(self.length) else self.length)
         else:
             return "{} {}[]".format(self.__class__.__name__, self.name)

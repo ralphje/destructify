@@ -1,5 +1,5 @@
 from . import Field, Substream
-from ..exceptions import DefinitionError, StreamExhaustedError
+from ..exceptions import DefinitionError, StreamExhaustedError, ParseError, WriteError
 from .base import _retrieve_property
 
 
@@ -146,3 +146,49 @@ class EnumField(BaseFieldMixin, Field):
         if hasattr(value, 'value'):
             value = value.value
         return self.base_field.to_stream(stream, value, context)
+
+
+class SwitchField(Field):
+    def __init__(self, cases, switch, *args, other=None, **kwargs):
+        self.cases = cases
+        self.switch = switch
+        self.other = other
+
+        super().__init__(*args, **kwargs)
+
+        if not all((isinstance(f, Field) for f in self.cases.values())):
+            raise DefinitionError("You must initialize the cases property of %s with Field values." % (self.full_name,))
+        if self.other is not None and not isinstance(self.other, Field):
+            raise DefinitionError("You must initialize the default property of %s with a Field." % (self.full_name,))
+
+    def contribute_to_class(self, cls, name):
+        super().contribute_to_class(cls, name)
+        for f in self.cases.values():
+            f.name = name
+            f.bound_structure = cls
+        if self.other is not None:
+            self.other.name = name
+            self.other.bound_structure = cls
+
+    def get_switch(self, context):
+        return _retrieve_property(context, self.switch)
+
+    @property
+    def ctype(self):
+        return "switch {}".format(self.name)
+
+    def from_stream(self, stream, context=None):
+        switch = self.get_switch(context)
+        if switch in self.cases:
+            return self.cases[switch].from_stream(stream, context)
+        if self.other is not None:
+            return self.other.from_stream(stream, context)
+        raise ParseError("The case {} is not specified for {}, and other is unset".format(switch, self.full_name))
+
+    def to_stream(self, stream, value, context=None):
+        switch = self.get_switch(context)
+        if switch in self.cases:
+            return self.cases[switch].to_stream(stream, value, context)
+        if self.other is not None:
+            return self.other.to_stream(stream, value, context)
+        raise WriteError("The case {} is not specified for {}, and other is unset".format(switch, self.full_name))

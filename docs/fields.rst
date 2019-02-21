@@ -24,6 +24,10 @@ Parsing context
 
        context.field_name
 
+   .. attribute:: ParsingContext.parent
+
+      Access to the parent context (useful when parsing a Structure inside a Structure).
+
    When you are implementing a field yourself, you get a :class:`ParsingContext` when reading from and writing to a
    stream, meaning you will probably use one the following methods:
 
@@ -461,6 +465,39 @@ ConditionalField
 
       The condition given a context is obtained by calling ``ConditionalField.get_condition(value, context)``.
 
+SwitchField
+===========
+.. autoclass:: SwitchField
+
+   .. attribute:: SwitchField.cases
+
+      A dictionary of all cases mapping to a specific :class:`Field`.
+
+   .. attribute:: SwitchField.switch
+
+      This specifies the switch, i.e. the key for :attr:`cases`.
+
+      You can set it to one of the following:
+
+      * A callable with zero arguments
+      * A callable taking a :class:`ParsingContext` object
+      * A string that represents the field name that evaluates to the value of the condition
+      * A value that is to be evaluated
+
+   .. attribute:: SwitchField.other
+
+      The 'default' case that is used when the :attr:`switch` is not part of the :attr:`cases`. If not specified, and
+      an unknown value is encountered, an exception is raised.
+
+   Example::
+
+       class ConditionalStructure(Structure):
+           type = EnumField(IntegerField(1), enum=Types)
+           perms = SwitchField(cases={
+               Types.FIRST: StructureField(Structure1),
+               Types.SECOND: StructureField(Structure2),
+           }, other=StructureField(Structure0), switch='type')
+
 EnumField
 =========
 .. autoclass:: EnumField
@@ -485,4 +522,3 @@ EnumField
        ...
        >>> EnumStructure.from_bytes(b"\x05")
        <EnumStructure: EnumStructure(perms=<Permissions.R|X: 5>)>
-

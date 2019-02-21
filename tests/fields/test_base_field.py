@@ -2,7 +2,7 @@ import enum
 import unittest
 
 from destructify import Structure, BitField, FixedLengthField, DefinitionError, BaseFieldMixin, Field, EnumField, \
-    IntegerField, ByteField, ConditionalField, ArrayField
+    IntegerField, ByteField, ConditionalField, ArrayField, SwitchField
 from tests import DestructifyTestCase
 
 
@@ -116,3 +116,17 @@ class EnumFieldTest(unittest.TestCase):
         self.assertEqual(Flags(0), EnumStructure.from_bytes(b"\0").flag)
         self.assertEqual(Flags.R | Flags.X, EnumStructure.from_bytes(b"\x05").flag)
         self.assertEqual(b"\x07", bytes(EnumStructure(flag=Flags.X | Flags.R | Flags.W)))
+
+
+class SwitchFieldTest(DestructifyTestCase):
+    def test_basic_switch(self):
+        self.assertFieldStreamEqual(b"\x01", 1,
+                                    SwitchField(cases={1: IntegerField(1), 2: IntegerField(2, 'little')}, switch=1))
+        self.assertFieldStreamEqual(b"\x01\x01", 0x0101,
+                                    SwitchField(cases={1: IntegerField(1), 2: IntegerField(2, 'little')}, switch=2))
+        self.assertFieldStreamEqual(b"\x01", 1,
+                                    SwitchField(cases={1: IntegerField(1), 2: IntegerField(2, 'little')}, switch='c'),
+                                    parsed_fields={'c': 1})
+
+    def test_switch_other(self):
+        self.assertFieldStreamEqual(b"\x01", 1, SwitchField(cases={}, other=IntegerField(1), switch=1))

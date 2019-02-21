@@ -1,12 +1,18 @@
 import unittest
 
 from destructify import Structure, BitField, FixedLengthField, StructureField, MisalignedFieldError, \
-    StringField, IntegerField, TerminatedField, BytesField
+    StringField, IntegerField, BytesField
 from destructify.exceptions import DefinitionError, StreamExhaustedError, WriteError
 from tests import DestructifyTestCase
 
 
 class BytesFieldTestCase(DestructifyTestCase):
+    def test_initialize(self):
+        with self.assertRaises(DefinitionError):
+            BytesField(terminator=b'\0', padding=b'\0')
+        with self.assertRaises(DefinitionError):
+            BytesField()
+
     def test_length(self):
         self.assertFieldStreamEqual(b"abc", b"abc", BytesField(length=3))
         self.assertFieldStreamEqual(b"", b"", BytesField(length=0))
