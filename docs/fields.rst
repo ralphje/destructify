@@ -292,19 +292,16 @@ BitField
 
       Thus, ignoring bits 2-0 from the first byte.
 
-Struct fields
-=============
-Destructify allows you to use 'classic' :mod:`struct` constructs as well.
-
 StructField
------------
+===========
+Destructify allows you to use 'classic' :mod:`struct` constructs as well.
 
 .. autoclass:: StructField
 
    .. attribute:: StructField.format
 
       The format to be passed to the struct module. See
-      `Struct Format Strings`<https://docs.python.org/3/library/struct.html#format-strings> in the manual of Python
+      `Struct Format Strings <https://docs.python.org/3/library/struct.html#format-strings>`_ in the manual of Python
       for information on how to construct these.
 
       You do not need to include the byte order. If you do, it acts as a default for the byte_order attribute, although
@@ -315,98 +312,62 @@ StructField
       The byte order to use for the struct. If this is not specified, an none is provided in the :attr:`format` field,
       it defaults to the ``byte_order`` specified in the meta of the Structure.
 
+   .. attribute:: StructField.multibyte
+
+      When set to True, the Python representation of this field is a tuple, rather than a single value.
+
 Subclasses of StructField
 -------------------------
+This project also provides several default implementations for the different types of structs. For each of the
+formats described in `Struct Format Strings <https://docs.python.org/3/library/struct.html#format-strings>`_, there
+is a single-byte class. Note that you must specify your own
 
-This project also provides a smorgasbord of several default implementations for the different types of structs. First
-off, there are four different kinds of base classes for the different byte orders:
-
-=============  ======  ================================
-Byte order     Format  Class name
-=============  ======  ================================
-little endian  ``<``   :class:`LittleEndianStructField`
-big endian     ``>``   :class:`BigEndianStructField`
-standard       ``=``   :class:`StandardStructField`
-native         ``@``   :class:`NativeStructField`
-=============  ======  ================================
-
-Each of the different formats supported by the struct module also gets a different base class. All of these are then
-combined into a multiple-inheritance structure where each specific structure inherits both from one of the
-byte-order classes above and one of the base classes. For instance, :class:`StandardShortField` inherits from both a
-:class:`ShortField` and a :class:`StandardStructField`.
+Each of the classes is listed in the table below.
 
 .. hint::
    Use a :class:`IntegerField` when you know the amount of bytes you need to parse. Classes below are typically used
    for system structures and the :class:`IntegerField` is typically used for network structures.
 
-Each of the classes is listed in the table below.
-
-+----------------------------------+--------+----------------------------------------------------------+
-| Base class                       | Format | Classes                                                  |
-+==================================+========+====================================+=====================+
-| :class:`CharField`               | ``c``  | | **native**: :class:`NativeCharField`                   |
-+----------------------------------+--------+----------------------------------------------------------+
-| :class:`ByteField`               | ``b``  | | **native**: :class:`NativeByteField`                   |
-+----------------------------------+--------+----------------------------------------------------------+
-| :class:`UnsignedByteField`       | ``B``  | | **native**: :class:`NativeUnsignedByteField`           |
-+----------------------------------+--------+----------------------------------------------------------+
-| :class:`BoolField`               | ``?``  | | **native**: :class:`NativeBoolField`                   |
-+----------------------------------+--------+----------------------------------------------------------+
-| :class:`ShortField`              | ``h``  | | **little endian**: :class:`LEShortField`               |
-|                                  |        | | **big endian**: :class:`BEShortField`                  |
-|                                  |        | | **standard**: :class:`StandardShortField`              |
-|                                  |        | | **native**: :class:`NativeShortField`                  |
-+----------------------------------+--------+----------------------------------------------------------+
-| :class:`UnsignedShortField`      | ``H``  | | **little endian**: :class:`LEUnsignedShortField`       |
-|                                  |        | | **big endian**: :class:`BEUnsignedShortField`          |
-|                                  |        | | **standard**: :class:`StandardUnsignedShortField`      |
-|                                  |        | | **native**: :class:`NativeUnsignedShortField`          |
-+----------------------------------+--------+----------------------------------------------------------+
-| :class:`IntField`                | ``i``  | | **little endian**: :class:`LEIntField`                 |
-|                                  |        | | **big endian**: :class:`BEIntField`                    |
-|                                  |        | | **standard**: :class:`StandardIntField`                |
-|                                  |        | | **native**: :class:`NativeIntField`                    |
-+----------------------------------+--------+----------------------------------------------------------+
-| :class:`UnsignedIntField`        | ``I``  | | **little endian**: :class:`LEUnsignedIntField`         |
-|                                  |        | | **big endian**: :class:`BEUnsignedIntField`            |
-|                                  |        | | **standard**: :class:`StandardUnsignedIntField`        |
-|                                  |        | | **native**: :class:`NativeUnsignedIntField`            |
-+----------------------------------+--------+----------------------------------------------------------+
-| n/a                              | ``l``  | | **native**: :class:`NativeLongField`                   |
-+----------------------------------+--------+----------------------------------------------------------+
-| n/a                              | ``L``  | | **native**: :class:`NativeUnsignedLongField`           |
-+----------------------------------+--------+----------------------------------------------------------+
-| :class:`LongField`               | ``q``  | | **little endian**: :class:`LELongField`                |
-|                                  |        | | **big endian**: :class:`BELongField`                   |
-|                                  |        | | **standard**: :class:`StandardLongField`               |
-|                                  |        | | **native**: :class:`NativeLongLongField`               |
-+----------------------------------+--------+----------------------------------------------------------+
-| :class:`UnsignedLongField`       | ``Q``  | | **little endian**: :class:`LEUnsignedLongField`        |
-|                                  |        | | **big endian**: :class:`LEUnsignedLongField`           |
-|                                  |        | | **standard**: :class:`BEUnsignedLongField`             |
-|                                  |        | | **native**: :class:`NativeUnsignedLongLongField`       |
-+----------------------------------+--------+----------------------------------------------------------+
-| :class:`HalfPrecisionFloatField` | ``e``  | | **little endian**: :class:`LEHalfPrecisionFloatField`  |
-|                                  |        | | **big endian**: :class:`BEHalfPrecisionFloatField`     |
-|                                  |        | | **standard**: :class:`StandardHalfPrecisionFloatField` |
-|                                  |        | | **native**: :class:`NativeHalfPrecisionFloatField`     |
-+----------------------------------+--------+----------------------------------------------------------+
-| :class:`FloatField`              | ``f``  | | **little endian**: :class:`LEFloatField`               |
-|                                  |        | | **big endian**: :class:`BEFloatField`                  |
-|                                  |        | | **standard**: :class:`StandardFloatField`              |
-|                                  |        | | **native**: :class:`NativeFloatField`                  |
-+----------------------------------+--------+----------------------------------------------------------+
-| :class:`DoubleField`             | ``d``  | | **little endian**: :class:`LEDoubleField`              |
-|                                  |        | | **big endian**: :class:`BEDoubleField`                 |
-|                                  |        | | **standard**: :class:`StandardDoubleField`             |
-|                                  |        | | **native**: :class:`NativeDoubleField`                 |
-+----------------------------------+--------+----------------------------------------------------------+
-
-Other fields
-============
++----------------------------------+--------+
+| Base class                       | Format |
++==================================+========+
+| :class:`CharField`               | ``c``  |
++----------------------------------+--------+
+| :class:`ByteField`               | ``b``  |
++----------------------------------+--------+
+| :class:`UnsignedByteField`       | ``B``  |
++----------------------------------+--------+
+| :class:`BoolField`               | ``?``  |
++----------------------------------+--------+
+| :class:`ShortField`              | ``h``  |
++----------------------------------+--------+
+| :class:`UnsignedShortField`      | ``H``  |
++----------------------------------+--------+
+| :class:`IntField`                | ``i``  |
++----------------------------------+--------+
+| :class:`UnsignedIntField`        | ``I``  |
++----------------------------------+--------+
+| :class:`LongField`               | ``l``  |
++----------------------------------+--------+
+| :class:`UnsignedLongField`       | ``L``  |
++----------------------------------+--------+
+| :class:`LongLongField`           | ``q``  |
++----------------------------------+--------+
+| :class:`UnsignedLongLongField`   | ``Q``  |
++----------------------------------+--------+
+| :class:`SizeField`               | ``n``  |
++----------------------------------+--------+
+| :class:`UnsignedSizeField`       | ``N``  |
++----------------------------------+--------+
+| :class:`HalfPrecisionFloatField` | ``e``  |
++----------------------------------+--------+
+| :class:`FloatField`              | ``f``  |
++----------------------------------+--------+
+| :class:`DoubleField`             | ``d``  |
++----------------------------------+--------+
 
 StructureField
---------------
+==============
 
 .. autoclass:: StructureField
 
@@ -432,7 +393,7 @@ StructureField
 
 
 ArrayField
-----------
+==========
 
 .. autoclass:: ArrayField
 
@@ -480,7 +441,7 @@ ArrayField
        [b'hello', b'world']
 
 ConditionalField
-----------------
+================
 .. autoclass:: ConditionalField
 
    .. attribute:: ConditionalField.base_field
@@ -501,7 +462,7 @@ ConditionalField
       The condition given a context is obtained by calling ``ConditionalField.get_condition(value, context)``.
 
 EnumField
----------
+=========
 .. autoclass:: EnumField
 
    .. attribute:: EnumField.base_field
