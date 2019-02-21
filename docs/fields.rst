@@ -106,13 +106,21 @@ Base field
 
    .. automethod:: Field.to_bytes
 
-Byte fields
-===========
-FixedLengthField
-----------------
-.. autoclass:: FixedLengthField
+BytesField
+==========
+.. autoclass:: BytesField
 
-   .. attribute:: FixedLengthField.length
+   A :class:`BytesField` can be used to read bytes from a stream. This is most commonly used as a base class for other
+   methods, as it can be used for the most common use cases.
+
+   There are three typical ways to use this field:
+
+   * Setting a :attr:`BytesField.length` to read a specified amount of bytes from a stream.
+   * Setting a :attr:`BytesField.terminator` to read until the specified byte from a stream.
+   * Setting both  :attr:`BytesField.length` and :attr:`BytesField.terminator` to first read the specified amount of
+     bytes from a stream and then find the terminator in this amount of bytes.
+
+   .. attribute:: BytesField.length
 
       This specifies the length of the field. This is the amount of data that is read from the stream and written to
       the stream.
@@ -128,7 +136,7 @@ FixedLengthField
 
           class StructureWithLength(Structure):
               length = UnsignedByteField()
-              value = FixedLengthField(length='length')
+              value = BytesField(length='length')
 
       The length given a context is obtained by calling ``FixedLengthField.get_length(value, context)``.
 
@@ -148,11 +156,12 @@ FixedLengthField
 
    This behaviour can be changed by manually specifying a different :attr:`Field.override` on ``length``.
 
-   .. attribute:: FixedLengthField.strict
+   .. attribute:: BytesField.strict
 
       This boolean (defaults to :const:`True`) enables raising errors in the following cases:
 
       * A :class:`StreamExhaustedError` when there are not sufficient bytes to completely fill the field while reading.
+      * A :class:`StreamExhaustedError` when the terminator is not found while reading.
       * A :class:`WriteError` when there are not sufficient bytes to fill the field while writing and
         :attr:`padding` is not set.
       * A :class:`WriteError` when the field must be padded, but the bytes that are to be written are not a multiple of
@@ -161,7 +170,7 @@ FixedLengthField
 
       Disabling :attr:`FixedLengthField.strict` is not recommended, as this may cause inadvertent errors.
 
-   .. attribute:: FixedLengthField.padding
+   .. attribute:: BytesField.padding
 
       When set, this value is used to pad the bytes to fill the entire field while writing, and chop this off the
       value while reading. Padding is removed right to left and must be aligned to the end of the value (which matters
@@ -172,61 +181,60 @@ FixedLengthField
       value and chopped of whenever required. However, this can't be parsed back by Destructify (as the padding is not
       aligned to the end of the structure).
 
-TerminatedField
----------------
+      This can only be set when :attr:`length` is used.
 
-.. autoclass:: TerminatedField
+   .. attribute:: BytesField.terminator
 
-   .. attribute:: TerminatedField.terminator
+      The terminator to read until. It can be multiple bytes.
 
-      The terminator to read until. It can be multiple bytes. Defaults to a null-byte (``b'\0'``).
+      When this is set, :attr:`padding` is ignored while reading from a stream, but may be used to pad bytes that are
+      written.
 
-   .. attribute:: TerminatedField.step
+   .. attribute:: BytesField.step
 
       The size of the steps for finding the terminator. This is useful if you have a multi-byte terminator that is
       aligned. For instance, when reading NULL-terminated UTF-16 strings, you'd expect two NULL bytes aligned to two
-      bytes. Defaults to 1.
+      bytes (from the start). Defaults to 1.
 
-   Example usage::
+      Example usage::
 
-       >>> class TerminatedStructure(Structure):
-       ...     foo = TerminatedField()
-       ...     bar = TerminatedField(terminator=b'\r\n')
-       ...
-       >>> TerminatedStructure.from_bytes(b"hello\0world\r\n")
-       <TerminatedStructure: TerminatedStructure(foo=b'hello', bar=b'world')>
+          >>> class TerminatedStructure(Structure):
+          ...     foo = BytesField(terminator=b'\0')
+          ...     bar = BytesField(terminator=b'\r\n')
+          ...
+          >>> TerminatedStructure.from_bytes(b"hello\0world\r\n")
+          <TerminatedStructure: TerminatedStructure(foo=b'hello', bar=b'world')>
 
-String fields
-=============
-There are two flavours of string fields: the :class:`FixedLengthStringField` is used for strings that are contained in
-fixed-length fields, and is a subclass of :class:`FixedLengthField`, and the :class:`TerminatedStringField` that is used
-for terminated strings, using :class:`TerminatedField` as base.
+FixedLengthField
+----------------
+.. autoclass:: FixedLengthField
 
-Both string fields have the following attributes:
+   This class is identical to :class:`BytesField`, but specifies the length as a required first argument.
 
-.. autoclass:: StringFieldMixin
+TerminatedField
+---------------
+.. autoclass:: TerminatedField
 
-   .. attribute:: StringFieldMixin.encoding
+   This class is identical to :class:`BytesField`, but specifies the terminator as a required first argument, defaulting
+   to a single NULL-byte.
+
+StringField
+===========
+
+.. autoclass:: StringField
+
+   See :class:`BytesField` for all attributes.
+
+   .. attribute:: StringField.encoding
 
       The encoding of the string. Defaults to ``utf-8``, but can be any encoding supported by Python.
 
-   .. attribute:: StringFieldMixin.errors
+   .. attribute:: StringField.errors
 
       The error handler for encoding/decoding failures. Defaults to Python's default of ``strict``.
 
-.. autoclass:: FixedLengthStringField
-
-   See :class:`FixedLengthField` and :class:`StringFieldMixin` for all attributes.
-
-.. autoclass:: TerminatedStringField
-
-   See :class:`TerminatedField` and :class:`StringFieldMixin` for all attributes.
-
-Numeric fields
-==============
-
 IntegerField
-------------
+============
 
 .. note::
    The :class:`IntegerField` is not to be confused with the :class:`IntField`, which is based on :class:`StructField`.
@@ -250,7 +258,7 @@ IntegerField
       Boolean indicating whether the integer is to be interpreted as a signed or unsigned integer.
 
 BitField
---------
+========
 
 .. autoclass:: BitField
 

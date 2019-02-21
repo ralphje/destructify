@@ -1,19 +1,23 @@
 import io
 
-from . import Field, StreamExhaustedError, Substream, ParsingContext, NOT_PROVIDED
+from . import Field, StreamExhaustedError, Substream, ParsingContext
 from ..exceptions import DefinitionError, WriteError
 from .base import _retrieve_property
 
 
-class FixedLengthField(Field):
-    """Field with a fixed length. It reads exactly the amount of bytes as specified in the length attribute.
-    """
-
-    def __init__(self, length, *args, strict=True, padding=None, **kwargs):
+class BytesField(Field):
+    def __init__(self, *args, length=None, terminator=None, step=1, strict=True, padding=None, **kwargs):
         self.length = length
+        self.terminator = terminator
+        self.step = step
         self.strict = strict
         self.padding = padding
         super().__init__(*args, **kwargs)
+
+        if self.length is None and self.terminator is None:
+            raise DefinitionError("The field {} must specify at least a length or terminator.".format(self.full_name))
+        if self.length is None and self.padding is not None:
+            raise DefinitionError("The field {} specifies padding, but not a length.".format(self.full_name))
 
     def __len__(self):
         if isinstance(self.length, int):
@@ -25,8 +29,10 @@ class FixedLengthField(Field):
     def ctype(self):
         if self._ctype:
             return "{} {}".format(self._ctype, self.name)
-        else:
+        elif self.length:
             return "{} {}[{}]".format(self.__class__.__name__, self.name, "" if callable(self.length) else self.length)
+        else:
+            return "{} {}[]".format(self.__class__.__name__, self.name)
 
     def initialize(self):
         """Overrides the content of the length field if possible."""
@@ -39,29 +45,59 @@ class FixedLengthField(Field):
     def get_length(self, context):
         return _retrieve_property(context, self.length)
 
-    def from_stream(self, stream, context=None):
+    def from_stream(self, stream, context):
+        if self.length is None:
+            return self._from_stream_terminated(stream, context)
+        else:
+            return self._from_stream_fixed_length(stream, context)
+
+    def to_stream(self, stream, value, context):
+        if self.length is None:
+            return self._to_stream_terminated(stream, value, context)
+        else:
+            return self._to_stream_fixed_length(stream, value, context)
+
+    def _from_stream_fixed_length(self, stream, context):
         length = self.get_length(context)
         read = context.read_stream(stream, length)
         if len(read) < length and self.strict:
             raise StreamExhaustedError("Could not parse field %s, trying to read %s bytes, but only %s read." %
                                        (self.full_name, length, len(read)))
 
-        # Remove padding
-        value = read
-        if self.padding is not None:
+        # Remove padding or find the terminator
+        if self.terminator is not None:
+            value = b""
+            for i in range(0, len(read), self.step):
+                c = read[i:i+self.step]
+                value += c
+                if len(c) == self.step and value.endswith(self.terminator):
+                    value = value[:-len(self.terminator)]
+                    break
+            else:
+                if self.strict:
+                    raise StreamExhaustedError("Could not parse field %s; did not find terminator %s" %
+                                               (self.name, self.terminator))
+
+        elif self.padding is not None:
+            value = read
             while value[-len(self.padding):] == self.padding:
                 value = value[:-len(self.padding)]
 
+        else:
+            value = read
+
         return self.from_bytes(value), len(read)
 
-    def to_stream(self, stream, value, context=None):
+    def _to_stream_fixed_length(self, stream, value, context):
         length = self.get_length(context)
+
+        val = self.to_bytes(value)
+        if self.terminator is not None:
+            val += self.terminator
 
         if length < 0:
             # For negative lengths, we just write to the stream
-            return super().to_stream(stream, value, context)
-
-        val = self.to_bytes(value)
+            return context.write_stream(stream, val)
 
         if len(val) < length:
             if self.padding is not None:
@@ -84,6 +120,41 @@ class FixedLengthField(Field):
             val = val[:length]
 
         return context.write_stream(stream, val)
+
+    def _from_stream_terminated(self, stream, context):
+        read = b""
+        while True:
+            c = context.read_stream(stream, self.step)
+            read += c
+            if len(c) != self.step:
+                if self.strict:
+                    raise StreamExhaustedError("Could not parse field %s; did not find terminator %s" %
+                                               (self.name, self.terminator))
+                else:
+                    return self.from_bytes(read), len(read)
+
+            if read.endswith(self.terminator):
+                return self.from_bytes(read[:-len(self.terminator)]), len(read)
+
+    def _to_stream_terminated(self, stream, value, context):
+        return context.write_stream(stream, self.to_bytes(value) + self.terminator)
+
+
+class FixedLengthField(BytesField):
+    """Field with a fixed length. It reads exactly the amount of bytes as specified in the length attribute.
+    """
+
+    def __init__(self, length, *args, **kwargs):
+        super().__init__(length=length, *args, **kwargs)
+
+
+class TerminatedField(BytesField):
+    """A field that reads until the :attr:`TerminatedField.terminator` is hit. It directly returns the bytes as read,
+     without the terminator.
+    """
+
+    def __init__(self, terminator=b'\0', *args, **kwargs):
+        super().__init__(*args, terminator=terminator, **kwargs)
 
 
 class BitField(FixedLengthField):
@@ -127,36 +198,7 @@ class BitField(FixedLengthField):
         return context.write_stream_bits(stream, value, self.get_length(context), force_write=self.realign)
 
 
-class TerminatedField(Field):
-    """A field that reads until the :attr:`TerminatedField.terminator` is hit. It directly returns the bytes as read,
-     without the terminator.
-    """
-
-    def __init__(self, terminator=b'\0', *args, step=1, **kwargs):
-        self.terminator = terminator
-        self.step = step
-        super().__init__(*args, **kwargs)
-
-    def from_stream(self, stream, context=None):
-        length = 0
-        read = b""
-        while True:
-            c = context.read_stream(stream, self.step)
-            if len(c) != self.step:
-                raise StreamExhaustedError("Could not parse field %s; did not find terminator %s" %
-                                           (self.name, self.terminator))
-            read += c
-            length += self.step
-            if read.endswith(self.terminator):
-                break
-
-        return self.from_bytes(read[:-len(self.terminator)]), length
-
-    def to_bytes(self, value):
-        return value + self.terminator
-
-
-class StringFieldMixin:
+class StringField(BytesField):
     def __init__(self, *args, encoding='utf-8', errors='strict', **kwargs):
         self.encoding = encoding
         self.errors = errors
@@ -167,14 +209,6 @@ class StringFieldMixin:
 
     def to_bytes(self, value):
         return super().to_bytes(value.encode(self.encoding, self.errors))
-
-
-class FixedLengthStringField(StringFieldMixin, FixedLengthField):
-    pass
-
-
-class TerminatedStringField(StringFieldMixin, TerminatedField):
-    pass
 
 
 class IntegerField(FixedLengthField):

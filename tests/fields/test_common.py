@@ -1,156 +1,105 @@
 import unittest
 
 from destructify import Structure, BitField, FixedLengthField, StructureField, MisalignedFieldError, \
-    FixedLengthStringField, TerminatedStringField, IntegerField, TerminatedField
+    StringField, IntegerField, TerminatedField, BytesField
 from destructify.exceptions import DefinitionError, StreamExhaustedError, WriteError
 from tests import DestructifyTestCase
 
 
-class FixedLengthFieldTestCase(unittest.TestCase):
-    def test_parsing(self):
-        class Struct(Structure):
-            str1 = FixedLengthField(length=3)
-            str2 = FixedLengthField(length=1)
+class BytesFieldTestCase(DestructifyTestCase):
+    def test_length(self):
+        self.assertFieldStreamEqual(b"abc", b"abc", BytesField(length=3))
+        self.assertFieldStreamEqual(b"", b"", BytesField(length=0))
+        self.assertFieldFromStreamEqual(b"abcdef", b"abc", BytesField(length=3))
 
-        s = Struct.from_bytes(b"abcd")
-        self.assertEqual(b"abc", s.str1)
-        self.assertEqual(b"d", s.str2)
+    def test_dynamic_length(self):
+        self.assertFieldStreamEqual(b"abc", b"abc", BytesField(length='length'),
+                                    parsed_fields={'length': 3})
+        self.assertFieldStreamEqual(b"abc", b"abc", BytesField(length=lambda c: 3))
 
-    def test_parsing_with_length_from_other_field(self):
-        class Struct(Structure):
-            len = IntegerField(length=1, byte_order='little')
-            str1 = FixedLengthField(length='len')
-
-        s = Struct.from_bytes(b"\x01a")
-        self.assertEqual(1, s.len)
-        self.assertEqual(b'a', s.str1)
-        s = Struct.from_bytes(b"\x02ab")
-        self.assertEqual(2, s.len)
-        self.assertEqual(b'ab', s.str1)
-
-    def test_parsing_with_too_little_bytes(self):
-        class Struct(Structure):
-            str1 = FixedLengthField(length=3)
-
-        with self.assertRaises(StreamExhaustedError):
-            Struct.from_bytes(b"ab")
-
-        class Struct2(Structure):
-            str1 = FixedLengthField(length=3, strict=False)
-
-        self.assertEqual(b"ab", Struct2.from_bytes(b"ab").str1)
-
-    def test_writing(self):
-        class Struct(Structure):
-            str1 = FixedLengthField(length=3)
-
-        with self.assertRaises(WriteError):
-            Struct(str1=b'hello').to_bytes()
-        with self.assertRaises(WriteError):
-            Struct(str1=b'he').to_bytes()
-        self.assertEqual(b'hey', Struct(str1=b'hey').to_bytes())
-
-        class Struct2(Structure):
-            str1 = FixedLengthField(length=3, strict=False)
-        self.assertEqual(b'hel', Struct2(str1=b'hello').to_bytes())
-
-    def test_writing_with_length_from_other_field(self):
+    def test_dynamic_length_full(self):
         class Struct(Structure):
             len = IntegerField(length=1, byte_order='little')
-            str1 = FixedLengthField(length='len')
+            str1 = BytesField(length='len')
 
+        self.assertStructureStreamEqual(b'\x05hello', Struct(len=5, str1=b'hello'))
         self.assertEqual(b'\x05hello', Struct(str1=b'hello').to_bytes())
         self.assertEqual(b'\x01h', Struct(len=1, str1=b'h').to_bytes())
 
-    def test_writing_with_length_from_other_field_that_has_override(self):
+    def test_dynamic_length_full_other_field_has_override(self):
         class Struct(Structure):
             len = IntegerField(length=1, byte_order='little', override=lambda c, v: v)
-            str1 = FixedLengthField(length='len')
+            str1 = BytesField(length='len')
 
         self.assertEqual(b'\x05hello', Struct(len=5, str1=b'hello').to_bytes())
 
         with self.assertRaises(Exception):
             Struct(str1=b'hello').to_bytes()
 
-    def test_parsing_with_padding(self):
-        class Struct(Structure):
-            str1 = FixedLengthField(length=10, padding=b'\0')
-
-        self.assertEqual(b'hello', Struct.from_bytes(b"hello\0\0\0\0\0").str1)
-        self.assertEqual(b'hello\0\0\0\0\x01', Struct.from_bytes(b"hello\0\0\0\0\x01").str1)
-
-        class Struct2(Structure):
-            str1 = FixedLengthField(length=10, padding=b'\x01\x02')
-
-        self.assertEqual(b'hello\0', Struct2.from_bytes(b"hello\0\x01\x02\x01\x02").str1)
-        self.assertEqual(b'hello\0\x01\x02\x01a', Struct2.from_bytes(b"hello\0\x01\x02\x01a").str1)
-
-    def test_writing_with_padding(self):
-        class Struct(Structure):
-            str1 = FixedLengthField(length=10, padding=b'\0')
-
-        self.assertEqual(b'hello\0\0\0\0\0', Struct(str1=b"hello").to_bytes())
-        self.assertEqual(b'hellohello', Struct(str1=b"hellohello").to_bytes())
-
-        class Struct2(Structure):
-            str1 = FixedLengthField(length=10, padding=b'\x01\x02')
-
-        self.assertEqual(b'hello\0\x01\x02\x01\x02', Struct2(str1=b"hello\0").to_bytes())
-        with self.assertRaises(WriteError):
-            Struct2(str1=b"hello").to_bytes()
-        with self.assertRaises(WriteError):
-            Struct2(str1=b"hellohellohello").to_bytes()
-
-    def test_writing_with_padding_not_strict(self):
-        class Struct2(Structure):
-            str1 = FixedLengthField(length=10, padding=b'\x01\x02', strict=False)
-
-        self.assertEqual(b'hello\x01\x02\x01\x02\x01', Struct2(str1=b"hello").to_bytes())
-        self.assertEqual(b'hellohello', Struct2(str1=b"hellohellohello").to_bytes())
-
-    def test_writing_and_parsing_with_padding_zero_length(self):
-        class Struct(Structure):
-            str1 = FixedLengthField(length=0, padding=b'\0')
-
-        self.assertEqual(b'', Struct.from_bytes(b'asdf').str1)
-        self.assertEqual(b'', Struct(str1=b"").to_bytes())
-
-    def test_writing_and_parsing_negative_length(self):
-        class Struct(Structure):
-            str1 = FixedLengthField(length=-1)
-
-        self.assertEqual(b'asdf', Struct.from_bytes(b'asdf').str1)
-        self.assertEqual(b'asdf', Struct(str1=b"asdf").to_bytes())
-
-    def test_writing_and_parsing_negative_length_and_padding(self):
-        class Struct(Structure):
-            str1 = FixedLengthField(length=-1, padding=b'\0')
-
-        self.assertEqual(b'asdf', Struct.from_bytes(b'asdf').str1)
-        self.assertEqual(b'asdf', Struct(str1=b"asdf").to_bytes())
-
-
-class TerminatedFieldTest(DestructifyTestCase):
-    def test_simple_terminator(self):
-        self.assertFieldFromStreamEqual(b"asdfasdf", TerminatedField(terminator=b'\0'), b'asdfasdf\0')
-        self.assertFieldFromStreamEqual(b"", TerminatedField(terminator=b'\0'), b'\0')
+    def test_length_insufficient_bytes(self):
         with self.assertRaises(StreamExhaustedError):
-            self.call_field_from_stream(TerminatedField(terminator=b'\0'), b'asdfasdf')
+            self.call_field_from_stream(BytesField(length=8), b"abc")
+        self.call_field_from_stream(BytesField(length=8, strict=False), b"abc")
 
-        self.assertFieldToStreamEqual(b"\0", TerminatedField(terminator=b'\0'), b'')
-        self.assertFieldToStreamEqual(b"asdf\0", TerminatedField(terminator=b'\0'), b'asdf')
+    def test_length_and_padding(self):
+        self.assertFieldStreamEqual(b"a\0\0\0\0\0\0\0", b"a", BytesField(length=8, padding=b"\0"))
+        self.assertFieldStreamEqual(b"aXPADXPAD", b"a", BytesField(length=9, padding=b"XPAD"))
+        self.assertFieldStreamEqual(b"abcd\0\0", b"abcd", BytesField(length=6, padding=b"\0\0", step=2))
+        self.assertFieldStreamEqual(b"abc\0\0\0", b"abc\0", BytesField(length=6, padding=b"\0\0", step=2))
+        self.assertFieldStreamEqual(b"abc\0\0\0\0", b"abc", BytesField(length=7, padding=b"\0\0"))
+
+    def test_length_and_misaligned_padding(self):
+        with self.assertRaises(WriteError):
+            self.call_field_to_stream(BytesField(length=7, padding=b"\0\0"), b"ab")
+        self.assertFieldToStreamEqual(b"ab\0\0\0\0\0", b"ab", BytesField(length=7, padding=b"\0\0", strict=False))
+
+    def test_length_write_insufficient_bytes(self):
+        with self.assertRaises(WriteError):
+            self.call_field_to_stream(BytesField(length=7), b"ab")
+        self.assertFieldToStreamEqual(b"ab", b"ab", BytesField(length=7, strict=False))
+
+    def test_length_write_too_many_bytes(self):
+        with self.assertRaises(WriteError):
+            self.call_field_to_stream(BytesField(length=2), b"abcdefg")
+        self.assertFieldToStreamEqual(b"ab", b"abcdefg", BytesField(length=2, strict=False))
+
+    def test_negative_length(self):
+        self.assertFieldStreamEqual(b"abc", b"abc", BytesField(length=-1))
+        self.assertFieldStreamEqual(b"", b"", BytesField(length=-1))
+        self.assertFieldStreamEqual(b"asd\0", b"asd", BytesField(length=-1, terminator=b"\0"))
+
+    def test_terminator(self):
+        self.assertFieldStreamEqual(b"abcdef\0", b"abcdef", BytesField(terminator=b"\0"))
+        self.assertFieldFromStreamEqual(b"abc\0def", b"abc", BytesField(terminator=b"\0"))
+
+    def test_terminator_insufficient_bytes(self):
+        with self.assertRaises(StreamExhaustedError):
+            self.call_field_from_stream(BytesField(terminator=b'\0'), b"abc")
+        self.assertFieldFromStreamEqual(b"abc", b"abc", BytesField(terminator=b'\0', strict=False))
 
     def test_multibyte_terminator(self):
-        self.assertFieldFromStreamEqual(b"asdfasdf", TerminatedField(terminator=b'\0\x91'), b'asdfasdf\0\x91')
-        self.assertFieldFromStreamEqual(b"", TerminatedField(terminator=b'\0\x91'), b'\0\x91')
+        self.assertFieldStreamEqual(b"abcdef\0\0", b"abcdef", BytesField(terminator=b"\0\0"))
+        self.assertFieldFromStreamEqual(b"a\0bc\0\0def", b"a\0bc", BytesField(terminator=b"\0\0"))
+        self.assertFieldStreamEqual(b"abcde\0\0\0", b"abcde\0", BytesField(terminator=b"\0\0", step=2))
 
-        self.assertFieldToStreamEqual(b"\0\x91", TerminatedField(terminator=b'\0\x91'), b'')
-        self.assertFieldToStreamEqual(b"asdf\0\x91", TerminatedField(terminator=b'\0\x91'), b'asdf')
+    def test_length_and_terminator(self):
+        self.assertFieldStreamEqual(b"abcdef\0", b"abcdef", BytesField(length=7, terminator=b"\0"))
+        self.assertFieldFromStreamEqual(b"abc\0def", b"abc", BytesField(length=7, terminator=b"\0"))
 
-    def test_multibyte_terminator_aligned(self):
-        self.assertFieldFromStreamEqual(b"asdfasdf", TerminatedField(terminator=b'\0\0', step=2), b'asdfasdf\0\0')
+    def test_length_and_terminator_insufficient_bytes(self):
         with self.assertRaises(StreamExhaustedError):
-            self.call_field_from_stream(TerminatedField(terminator=b'\0\0', step=2), b'asdfasd\0\0')
+            self.call_field_from_stream(BytesField(terminator=b'\0', length=3), b"abc")
+        with self.assertRaises(StreamExhaustedError):
+            self.call_field_from_stream(BytesField(terminator=b'\0\0', length=3), b"abc")
+        with self.assertRaises(StreamExhaustedError):
+            self.call_field_from_stream(BytesField(terminator=b'\0', length=8), b"abc")
+        self.assertFieldFromStreamEqual(b"abc", b"abc", BytesField(length=3, terminator=b'\0', strict=False))
+        self.assertFieldFromStreamEqual(b"ab", b"ab", BytesField(length=3, terminator=b'\0', strict=False))
+
+    def test_length_and_multibyte_terminator(self):
+        self.assertFieldStreamEqual(b"abcdef\0\0", b"abcdef", BytesField(terminator=b"\0\0", length=8))
+        self.assertFieldFromStreamEqual(b"a\0bc\0\0def", b"a\0bc", BytesField(terminator=b"\0\0", length=9))
+        self.assertFieldStreamEqual(b"abcde\0\0\0", b"abcde\0", BytesField(terminator=b"\0\0", step=2, length=8))
 
 
 class BitFieldTest(unittest.TestCase):
@@ -267,41 +216,24 @@ class StructureFieldTest(unittest.TestCase):
         self.assertEqual(b"\x06\x07\x08", s.text)
 
 
-class StringFieldsTest(unittest.TestCase):
-    def test_parsing_fixed_length(self):
-        class Struct(Structure):
-            string = FixedLengthStringField(5)
+class StringFieldTest(DestructifyTestCase):
+    def test_fixed_length(self):
+        self.assertFieldStreamEqual(b"abcde", 'abcde', StringField(length=5))
+        self.assertFieldStreamEqual(b'\xfc\0b\0e\0r\0', '\xfcber', StringField(length=8, encoding='utf-16-le'))
+        self.assertFieldStreamEqual(b'b\0y\0e\0b\0y\0e\0', 'byebye', StringField(length=12, encoding='utf-16-le'))
 
-        class Struct2(Structure):
-            string = FixedLengthStringField(8, encoding='utf-16-le')
-
-        self.assertEqual('abcde', Struct.from_bytes(b"abcde").string)
-        self.assertEqual('\xfcber', Struct2.from_bytes(b'\xfc\0b\0e\0r\0').string)
-
-    def test_parsing_fixed_length_error(self):
+    def test_fixed_length_error(self):
         with self.assertRaises(UnicodeDecodeError):
-            FixedLengthStringField(7, encoding='utf-16-le').from_bytes(b'\xfc\0b\0e\0r')
+            self.call_field_from_stream(StringField(length=7, encoding='utf-16-le'), b'\xfc\0b\0e\0r')
 
-        self.assertEqual("\xfcbe\uFFFD",
-                         FixedLengthStringField(7, encoding='utf-16-le', errors='replace').from_bytes(b'\xfc\0b\0e\0r'))
-        self.assertEqual("h\0\0",
-                         FixedLengthStringField(7, encoding='utf-16-le').from_bytes(b'h\0\0\0\0\0'))
+        self.assertFieldFromStreamEqual(b'\xfc\0b\0e\0r', "\xfcbe\uFFFD",
+                                        StringField(length=7, encoding='utf-16-le', errors='replace'))
+        self.assertFieldFromStreamEqual(b'h\0\0\0\0\0', "h\0\0",
+                                        StringField(length=6, encoding='utf-16-le'))
 
-    def test_writing_fixed_length(self):
-        self.assertEqual(b"b\0y\0e\0b\0y\0e\0", FixedLengthStringField(7, encoding='utf-16-le').to_bytes("byebye"))
-
-    def test_parsing_terminated(self):
-        class Struct(Structure):
-            string = TerminatedStringField(b'\0')
-
-        class Struct2(Structure):
-            string = TerminatedStringField(b'\0\0', encoding='utf-16-le', step=2)
-
-        self.assertEqual('abcde', Struct.from_bytes(b"abcde\0").string)
-        self.assertEqual('\xfcber', Struct2.from_bytes(b'\xfc\0b\0e\0r\0\0\0').string)
-
-    def test_writing_terminated(self):
-        self.assertEqual(b"b\0y\0e\0\0\0", TerminatedStringField(b'\0\0', encoding='utf-16-le').to_bytes("bye"))
+    def test_terminated(self):
+        self.assertFieldStreamEqual(b"abcde\0", 'abcde', StringField(terminator=b'\0'))
+        self.assertFieldStreamEqual(b'b\0y\0e\0\0\0', 'bye', StringField(terminator=b'\0\0', step=2, encoding='utf-16-le'))
 
 
 class IntegerFieldTest(DestructifyTestCase):
@@ -313,13 +245,13 @@ class IntegerFieldTest(DestructifyTestCase):
         self.assertEqual(-257, IntegerField(2, 'big', signed=True).from_bytes(b'\xfe\xff'))
 
     def test_writing(self):
-        self.assertFieldToStreamEqual(b'\x01\0', IntegerField(2, 'big'), 256)
-        self.assertFieldToStreamEqual(b'\x01\0', IntegerField(2, 'little'), 1)
-        self.assertFieldToStreamEqual(b'\xff\xfe', IntegerField(2, 'little', signed=True), -257)
+        self.assertFieldToStreamEqual(b'\x01\0', 256, IntegerField(2, 'big'))
+        self.assertFieldToStreamEqual(b'\x01\0', 1, IntegerField(2, 'little'))
+        self.assertFieldToStreamEqual(b'\xff\xfe', -257, IntegerField(2, 'little', signed=True))
         with self.assertRaises(OverflowError):
-            self.assertFieldToStreamEqual(None, IntegerField(1, 'little'), 1000)
+            self.assertFieldToStreamEqual(None, 1000, IntegerField(1, 'little'))
         with self.assertRaises(OverflowError):
-            self.assertFieldToStreamEqual(None, IntegerField(1, 'little'), -1000)
+            self.assertFieldToStreamEqual(None, -1000, IntegerField(1, 'little'))
 
     def test_parsing_with_byte_order_on_structure(self):
         with self.assertRaises(DefinitionError):
