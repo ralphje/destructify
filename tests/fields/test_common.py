@@ -243,17 +243,14 @@ class StringFieldTest(DestructifyTestCase):
 
 
 class IntegerFieldTest(DestructifyTestCase):
-    def test_parsing(self):
-        self.assertEqual(256, IntegerField(2, 'big').from_bytes(b'\x01\0'))
-        self.assertEqual(1, IntegerField(2, 'little').from_bytes(b'\x01\0'))
-        self.assertEqual(-257, IntegerField(2, 'little', signed=True).from_bytes(b'\xff\xfe'))
-        self.assertEqual(65534, IntegerField(2, 'big', signed=False).from_bytes(b'\xff\xfe'))
-        self.assertEqual(-257, IntegerField(2, 'big', signed=True).from_bytes(b'\xfe\xff'))
+    def test_basic(self):
+        self.assertFieldStreamEqual(b'\x01\0', 256, IntegerField(2, 'big'))
+        self.assertFieldStreamEqual(b'\x01\0', 1, IntegerField(2, 'little'))
+        self.assertFieldStreamEqual(b'\xff\xfe', -257, IntegerField(2, 'little', signed=True))
+        self.assertFieldStreamEqual(b'\xff\xfe', 65534, IntegerField(2, 'big', signed=False))
+        self.assertFieldStreamEqual(b'\xfe\xff', -257, IntegerField(2, 'big', signed=True))
 
-    def test_writing(self):
-        self.assertFieldToStreamEqual(b'\x01\0', 256, IntegerField(2, 'big'))
-        self.assertFieldToStreamEqual(b'\x01\0', 1, IntegerField(2, 'little'))
-        self.assertFieldToStreamEqual(b'\xff\xfe', -257, IntegerField(2, 'little', signed=True))
+    def test_writing_overflow(self):
         with self.assertRaises(OverflowError):
             self.assertFieldToStreamEqual(None, 1000, IntegerField(1, 'little'))
         with self.assertRaises(OverflowError):

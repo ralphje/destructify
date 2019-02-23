@@ -104,11 +104,7 @@ Base field
 
    .. automethod:: Field.from_stream
 
-   .. automethod:: Field.from_bytes
-
    .. automethod:: Field.to_stream
-
-   .. automethod:: Field.to_bytes
 
 BytesField
 ==========
@@ -127,9 +123,9 @@ BytesField
    .. attribute:: BytesField.length
 
       This specifies the length of the field. This is the amount of data that is read from the stream and written to
-      the stream.
+      the stream. The length may also be negative to indicate an unbounded read, i.e. until the end of stream.
 
-      You can set it to one of the following:
+      You can set this attribute to one of the following:
 
       * A callable with zero arguments
       * A callable taking a :class:`ParsingContext` object
@@ -209,25 +205,36 @@ BytesField
           >>> TerminatedStructure.from_bytes(b"hello\0world\r\n")
           <TerminatedStructure: TerminatedStructure(foo=b'hello', bar=b'world')>
 
+   This class can be used trivially to extend functionality. For instance, :class:`StringField` is a subclass of this
+   field. To aid subclassing, two additional hooks are provided:
+
+   .. automethod:: BytesField.from_python
+
+   .. automethod:: BytesField.to_python
+
 FixedLengthField
 ----------------
 .. autoclass:: FixedLengthField
 
-   This class is identical to :class:`BytesField`, but specifies the length as a required first argument.
+   This class is identical to :class:`BytesField`, but specifies the length as a required first argument. It is intended
+   to read a fixed amount of :attr:`BytesField.length` bytes.
 
 TerminatedField
 ---------------
 .. autoclass:: TerminatedField
 
-   This class is identical to :class:`BytesField`, but specifies the terminator as a required first argument, defaulting
-   to a single NULL-byte.
+   This class is identical to :class:`BytesField`, but specifies the terminator as its first argument, defaulting
+   to a single NULL-byte. It is intended to continue reading until :attr:`BytesField.terminator` is hit.
 
 StringField
 ===========
 
 .. autoclass:: StringField
 
-   See :class:`BytesField` for all attributes.
+   The :class:`StringField` is a subclass of :class:`BytesField` that converts the resulting :class:`bytes` object to a
+   :class:`str` object, given the :attr:`encoding` and :attr:`errors` attributes.
+
+   See :class:`BytesField` for all available attributes.
 
    .. attribute:: StringField.encoding
 
@@ -239,13 +246,13 @@ StringField
 
 IntegerField
 ============
-
-.. note::
-   The :class:`IntegerField` is not to be confused with the :class:`IntField`, which is based on :class:`StructField`.
-   For readability, you are recommended to use the :class:`IntegerField` whenever possible.
-
 .. autoclass:: IntegerField
 
+   The :class:`IntegerField` is used for fixed-length representations of integers.
+
+   .. note::
+
+      The :class:`IntegerField` is not to be confused with the :class:`IntField`, which is based on :class:`StructField`.
 
    .. attribute:: IntegerField.length
 
@@ -266,7 +273,9 @@ BitField
 
 .. autoclass:: BitField
 
-   When using the :class:`BitField`, you must be careful to align the bits to whole bytes. You can use multiple
+   A subclass of :class:`FixedLengthField`, reading bits rather than bytes. The field writes and reads integers.
+
+   When using the :class:`BitField`, you must be careful to align the field to whole bytes. You can use multiple
    :class:`BitField` s consecutively without any problem, but the following would raise errors::
 
        class MultipleBitFields(Structure):
@@ -276,6 +285,10 @@ BitField
 
    You can fix this by ensuring all consecutive bit fields align to a byte in total, or, alternatively, you can specify
    :attr:`realign` on the last :class:`BitField` to realign to the next byte.
+
+   .. attribute:: BitField.length
+
+      The amount of bits to read.
 
    .. attribute:: BitField.realign
 
@@ -298,27 +311,29 @@ BitField
 
 StructField
 ===========
-Destructify allows you to use 'classic' :mod:`struct` constructs as well.
-
 .. autoclass:: StructField
+
+   The :class:`StructField` enables you to use Python :mod:`struct` constructs if you wish to. Note that using complex
+   formats in this field kind-of defeats the purpose of this module.
 
    .. attribute:: StructField.format
 
-      The format to be passed to the struct module. See
+      The format to be passed to the :mod:`struct` module. See
       `Struct Format Strings <https://docs.python.org/3/library/struct.html#format-strings>`_ in the manual of Python
       for information on how to construct these.
 
-      You do not need to include the byte order. If you do, it acts as a default for the byte_order attribute, although
-      that takes precedence.
+      You do not need to include the byte order in this attribute. If you do, it acts as a default for the
+      :attr:`byte_order` attribute if you do not specify one.
 
    .. attribute:: StructField.byte_order
 
-      The byte order to use for the struct. If this is not specified, an none is provided in the :attr:`format` field,
-      it defaults to the ``byte_order`` specified in the meta of the Structure.
+      The byte order to use for the struct. If this is not specified, and none is provided in the :attr:`format` field,
+      it defaults to the ``byte_order`` specified in the meta of the :class:`destructify.structures.Structure`.
 
    .. attribute:: StructField.multibyte
 
-      When set to True, the Python representation of this field is a tuple, rather than a single value.
+      When set to :const:`False`, the Python representation of this field is the first result of the tuple as returned
+      by the :mod:`struct` module. Otherwise, the tuple is the result.
 
 Subclasses of StructField
 -------------------------
@@ -375,9 +390,18 @@ StructureField
 
 .. autoclass:: StructureField
 
+   The :class:`StructureField` is intended to create a structure that nests other structures. You can use this for
+   complex structures, or when combined with for instance an :class:`ArrayField` to create arrays of structures, and
+   when combined with :class:`SwitchField` to create type-based structures.
+
    .. attribute:: StructureField.structure
 
       The :class:`Structure` class that is initialized for the sub-structure.
+
+   .. attribute:: StructureField.length
+
+      The length of this structure. This allows you to limit the structure's length. This is particularly useful when
+      you have a :class:`Structure` that contains an unbounded read.
 
    Example usage::
 
@@ -395,11 +419,12 @@ StructureField
        >>> s.bar.foo
        b'hello world'
 
-
 ArrayField
 ==========
 
 .. autoclass:: ArrayField
+
+   A field that repeats the provided base field multiple times.
 
    .. attribute:: ArrayField.base_field
 
@@ -448,6 +473,9 @@ ConditionalField
 ================
 .. autoclass:: ConditionalField
 
+   A field that may or may not be present. When the :attr:`condition` evaluates to true, the :attr:`base_field`
+   field is parsed, otherwise the field is :const:`None`.
+
    .. attribute:: ConditionalField.base_field
 
       The field that is conditionally present.
@@ -469,6 +497,10 @@ SwitchField
 ===========
 .. autoclass:: SwitchField
 
+   The :class:`SwitchField` can be used to represent various types depending on some other value. You set the different
+   cases using a dictionary of value-to-field-types in the :attr:`cases` attribute. The :attr:`switch` value defines
+   the case that is applied. If none is found, an error is raised, unless :attr:`other` is set.
+
    .. attribute:: SwitchField.cases
 
       A dictionary of all cases mapping to a specific :class:`Field`.
@@ -489,6 +521,11 @@ SwitchField
       The 'default' case that is used when the :attr:`switch` is not part of the :attr:`cases`. If not specified, and
       an unknown value is encountered, an exception is raised.
 
+      .. hint::
+
+         A confusion is easily made by setting :attr:`Field.default` instead of :attr:`other`, though their purposes are
+         entirely different.
+
    Example::
 
        class ConditionalStructure(Structure):
@@ -501,6 +538,8 @@ SwitchField
 EnumField
 =========
 .. autoclass:: EnumField
+
+   A field that takes the value as evaluated by the :attr:`base_field` and parses it as the provided :attr:`enum`.
 
    .. attribute:: EnumField.base_field
 

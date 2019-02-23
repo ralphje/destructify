@@ -36,8 +36,7 @@ class StructField(FixedLengthField):
     format = None
     byte_order = ""
 
-    def __init__(self, format=None, byte_order=None, *args, multibyte=False, **kwargs):
-
+    def __init__(self, format=None, byte_order=None, *args, multibyte=True, **kwargs):
         if format is not None:
             self.format = format
         if byte_order is not None:
@@ -66,12 +65,12 @@ class StructField(FixedLengthField):
                 self._struct = struct.Struct(self.byte_order + self.format)
                 self.length = self._struct.size
 
-    def from_bytes(self, value):
+    def to_python(self, value):
         if self.multibyte:
             return self._struct.unpack(value)
         return self._struct.unpack(value)[0]
 
-    def to_bytes(self, value):
+    def from_python(self, value):
         if value is None:
             value = 0
         if self.multibyte:
@@ -79,25 +78,30 @@ class StructField(FixedLengthField):
         return self._struct.pack(value)
 
 
-def _factory(name, bases=(StructField, ), **kwargs):
+class SingleByteStructField(StructField):
+    def __init__(self, *args, **kwargs):
+        kwargs.update({"multibyte": False})
+        super().__init__(*args, **kwargs)
+
+
+def _factory(name, bases=(SingleByteStructField, ), **kwargs):
     return type(name, bases, kwargs)
 
 
-CharField = _factory("CharField", format="c", _ctype="char", bases=(StructField,))
-ByteField = _factory("ByteField", format="b", _ctype="signed char", bases=(StructField,))
-UnsignedByteField = _factory("UnignedByteField", format="unsigned char", _ctype="uint8_t", bases=(StructField,))
-BoolField = _factory("BoolField", format="?", _ctype="_Bool", bases=(StructField,))
-ShortField = _factory("ShortField", format="h", _ctype="short", bases=(StructField,))
-UnsignedShortField = _factory("UnsignedShortField", format="H", _ctype="unsigned short", bases=(StructField,))
-IntField = _factory("IntField", format="i", _ctype="int", bases=(StructField,))
-UnsignedIntField = _factory("UnsignedIntField", format="I", _ctype="unsigned int", bases=(StructField,))
-LongField = _factory("LongField", format="l", _ctype="long", bases=(StructField,))
-UnsignedLongField = _factory("UnsignedLongField", format="L", _ctype="unsigned long", bases=(StructField,))
-LongLongField = _factory("LongField", format="q", _ctype="long long", bases=(StructField,))
-UnsignedLongLongField = _factory("UnsignedLongField", format="Q", _ctype="unsigned long long", bases=(StructField,))
-SizeField = _factory("SizeField", format="n", _ctype="ssize_t", bases=(StructField,))
-UnsignedSizeField = _factory("UnsignedSizeField", format="N", _ctype="size_t", bases=(StructField,))
-HalfPrecisionFloatField = _factory("HalfPrecisionFloatField", format="e", _ctype="binary16",
-                                   bases=(StructField,))
-FloatField = _factory("FloatField", format="f", _ctype="float", bases=(StructField,))
-DoubleField = _factory("DoubleField", format="d", _ctype="double", bases=(StructField,))
+CharField = _factory("CharField", format="c", _ctype="char")
+ByteField = _factory("ByteField", format="b", _ctype="signed char")
+UnsignedByteField = _factory("UnignedByteField", format="unsigned char", _ctype="uint8_t")
+BoolField = _factory("BoolField", format="?", _ctype="_Bool")
+ShortField = _factory("ShortField", format="h", _ctype="short")
+UnsignedShortField = _factory("UnsignedShortField", format="H", _ctype="unsigned short")
+IntField = _factory("IntField", format="i", _ctype="int")
+UnsignedIntField = _factory("UnsignedIntField", format="I", _ctype="unsigned int")
+LongField = _factory("LongField", format="l", _ctype="long")
+UnsignedLongField = _factory("UnsignedLongField", format="L", _ctype="unsigned long")
+LongLongField = _factory("LongField", format="q", _ctype="long long")
+UnsignedLongLongField = _factory("UnsignedLongField", format="Q", _ctype="unsigned long long")
+SizeField = _factory("SizeField", format="n", _ctype="ssize_t")
+UnsignedSizeField = _factory("UnsignedSizeField", format="N", _ctype="size_t")
+HalfPrecisionFloatField = _factory("HalfPrecisionFloatField", format="e", _ctype="binary16")
+FloatField = _factory("FloatField", format="f", _ctype="float")
+DoubleField = _factory("DoubleField", format="d", _ctype="double")

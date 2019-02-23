@@ -102,8 +102,9 @@ class Structure(metaclass=StructureBase):
 
         return cls(**attrs), total_consumed
 
-    def to_stream(self, stream):
-        context = ParsingContext(structure=self)
+    def to_stream(self, stream, context=None):
+        if context is None:
+            context = ParsingContext(structure=self)
 
         # done in two loops to allow for finalizing
         values = {}

@@ -24,8 +24,6 @@ class BaseFieldMixin(object):
 
 
 class ArrayField(BaseFieldMixin, Field):
-    """A field that repeats the provided base field multiple times."""
-
     def __init__(self, base_field, count=None, length=None, *args, **kwargs):
         self.count = count
         self.length = length
@@ -92,6 +90,8 @@ class ArrayField(BaseFieldMixin, Field):
         if value is None:
             value = []
 
+        # TODO: handle length and count
+
         total_written = 0
         for val in value:
             total_written += self.base_field.to_stream(stream, val, context)
@@ -99,11 +99,6 @@ class ArrayField(BaseFieldMixin, Field):
 
 
 class ConditionalField(BaseFieldMixin, Field):
-    """A field that may or may not be present. When the :attr:`condition` evaluates to true, the :attr:`base_field`
-    field is parsed, otherwise the field is :const:`None`.
-
-    """
-
     def __init__(self, base_field, condition, *args, **kwargs):
         self.condition = condition
         super().__init__(base_field, *args, **kwargs)
@@ -128,9 +123,6 @@ class ConditionalField(BaseFieldMixin, Field):
 
 
 class EnumField(BaseFieldMixin, Field):
-    """A field that takes the value as evaluated by the :attr:`base_field` and parses it as the provided :attr:`enum`.
-    """
-
     def __init__(self, base_field, enum, *args, **kwargs):
         self.enum = enum
         super().__init__(base_field, *args, **kwargs)

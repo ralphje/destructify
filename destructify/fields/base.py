@@ -140,7 +140,7 @@ class Field:
     def from_stream(self, stream, context):
         """Given a stream of bytes object, consumes a given bytes object to Python representation.
 
-        The default implementation is to raise a :exc:`NotImplementedError`
+        The default implementation is to raise a :exc:`NotImplementedError` and subclasses must override this function.
 
         :param io.BufferedIOBase stream: The IO stream to consume from. The current position should already be set to
             the total of all previously parsed values.
@@ -149,17 +149,10 @@ class Field:
         """
         raise NotImplementedError()
 
-    def from_bytes(self, value):
-        """Method that converts a given bytes object to a Python value.
-
-        Default implementation just returns the value. Note that it is not called by default.
-        """
-        return value
-
     def to_stream(self, stream, value, context):
         """Writes a value to the stream, and returns the amount of bytes written.
 
-        The default implementation is to call :meth:`to_bytes` on value before writing it to the stream.
+        The default implementation is to raise a :exc:`NotImplementedError` and subclasses must override this function.
 
         :param io.BufferedIOBase stream: The IO stream to write to.
         :param value: The value to write
@@ -167,14 +160,4 @@ class Field:
         :returns: the amount of bytes written
         """
 
-        return context.write_stream(stream, self.to_bytes(value))
-
-    def to_bytes(self, value):
-        """Method that converts a given Python representation to bytes.
-
-        Default implementation assumes the value is already bytes.
-
-        This method is a hook for :meth:`to_stream`.
-        """
-        return value
-
+        raise NotImplementedError()

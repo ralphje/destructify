@@ -45,6 +45,22 @@ class BytesField(Field):
     def get_length(self, context):
         return _retrieve_property(context, self.length)
 
+    def to_python(self, value):
+        """A hook that is called by :meth:`from_stream` to convert a given bytes object to a Python value.
+
+        The default implementation is to return the value as-is, but subclasses may choose to override this instead of
+        writing a custom :meth:`from_stream` method.
+        """
+        return value
+
+    def from_python(self, value):
+        """A hook that is called by :meth:`to_stream` to convert a given Python representation to bytes.
+
+        The default implementation is to return the value as-is, but subclasses may choose to override this instead of
+        writing a custom :meth:`to_stream` method.
+        """
+        return value
+
     def from_stream(self, stream, context):
         if self.length is None:
             return self._from_stream_terminated(stream, context)
@@ -86,12 +102,12 @@ class BytesField(Field):
         else:
             value = read
 
-        return self.from_bytes(value), len(read)
+        return self.to_python(value), len(read)
 
     def _to_stream_fixed_length(self, stream, value, context):
         length = self.get_length(context)
 
-        val = self.to_bytes(value)
+        val = self.from_python(value)
         if self.terminator is not None:
             val += self.terminator
 
@@ -131,37 +147,26 @@ class BytesField(Field):
                     raise StreamExhaustedError("Could not parse field %s; did not find terminator %s" %
                                                (self.name, self.terminator))
                 else:
-                    return self.from_bytes(read), len(read)
+                    return self.to_python(read), len(read)
 
             if read.endswith(self.terminator):
-                return self.from_bytes(read[:-len(self.terminator)]), len(read)
+                return self.to_python(read[:-len(self.terminator)]), len(read)
 
     def _to_stream_terminated(self, stream, value, context):
-        return context.write_stream(stream, self.to_bytes(value) + self.terminator)
+        return context.write_stream(stream, self.from_python(value) + self.terminator)
 
 
 class FixedLengthField(BytesField):
-    """Field with a fixed length. It reads exactly the amount of bytes as specified in the length attribute.
-    """
-
     def __init__(self, length, *args, **kwargs):
         super().__init__(length=length, *args, **kwargs)
 
 
 class TerminatedField(BytesField):
-    """A field that reads until the :attr:`TerminatedField.terminator` is hit. It directly returns the bytes as read,
-     without the terminator.
-    """
-
     def __init__(self, terminator=b'\0', *args, **kwargs):
         super().__init__(*args, terminator=terminator, **kwargs)
 
 
 class BitField(FixedLengthField):
-    """A subclass of :class:`FixedLengthField`, but does not use bytes as the basis, but bits. The field writes and
-    reads integers.
-    """
-
     def __init__(self, length, *args, realign=False, **kwargs):
         self.realign = realign
         super().__init__(length, *args, **kwargs)
@@ -204,11 +209,11 @@ class StringField(BytesField):
         self.errors = errors
         super().__init__(*args, **kwargs)
 
-    def from_bytes(self, value):
-        return super().from_bytes(value).decode(self.encoding, self.errors)
+    def to_python(self, value):
+        return super().to_python(value).decode(self.encoding, self.errors)
 
-    def to_bytes(self, value):
-        return super().to_bytes(value.encode(self.encoding, self.errors))
+    def from_python(self, value):
+        return super().from_python(value.encode(self.encoding, self.errors))
 
 
 class IntegerField(FixedLengthField):
@@ -217,18 +222,18 @@ class IntegerField(FixedLengthField):
         self.signed = signed
         super().__init__(length=length, *args, **kwargs)
 
-    def from_bytes(self, value):
-        val = super().from_bytes(value)
+    def to_python(self, value):
+        val = super().to_python(value)
         return int.from_bytes(val,
                               byteorder='big' if not self.byte_order and len(val) == 1 else self.byte_order,
                               signed=self.signed)
 
     def to_stream(self, stream, value, context=None):
-        # We can't use to_bytes here as we need the field's length.
+        # We can't use from_python here as we need the field's length.
         length = self.get_length(context)
-        val = self.to_bytes(value.to_bytes(length,
-                                           byteorder='big' if not self.byte_order and length == 1 else self.byte_order,
-                                           signed=self.signed))
+        val = self.from_python(value.to_bytes(length,
+                                              byteorder='big' if not self.byte_order and length == 1 else self.byte_order,
+                                              signed=self.signed))
         return context.write_stream(stream, val)
 
     def contribute_to_class(self, cls, name):
@@ -244,10 +249,6 @@ class IntegerField(FixedLengthField):
 
 
 class StructureField(Field):
-    """A field that contains a :class:`Structure` in itself. If a default is not defined on the field, the default
-    is an empty structure.
-    """
-
     def __init__(self, structure, *args, length=None, **kwargs):
         self.structure = structure
         self.length = length
@@ -289,4 +290,5 @@ class StructureField(Field):
     def to_stream(self, stream, value, context=None):
         if value is None:
             value = self.structure()
+        # TODO: respect length
         return value.to_stream(stream)

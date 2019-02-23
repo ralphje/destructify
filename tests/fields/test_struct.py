@@ -6,10 +6,10 @@ from tests import DestructifyTestCase
 
 class StructFieldTest(DestructifyTestCase):
     def test_basic(self):
-        self.assertFieldStreamEqual(b"\x01\x02\x03\x04", 0x01020304, StructField(">I"))
-        self.assertFieldStreamEqual(b"\x01\x02\x03\x04", 0x04030201, StructField("<I"))
-        self.assertFieldStreamEqual(b"\x01\x02\x03\x04", 0x01020304, StructField("I", byte_order='big'))
-        self.assertFieldStreamEqual(b"\x01\x02\x03\x04", 0x01020304, StructField("<I", byte_order='big'))
+        self.assertFieldStreamEqual(b"\x01\x02\x03\x04", 0x01020304, StructField(">I", multibyte=False))
+        self.assertFieldStreamEqual(b"\x01\x02\x03\x04", 0x04030201, StructField("<I", multibyte=False))
+        self.assertFieldStreamEqual(b"\x01\x02\x03\x04", 0x01020304, StructField("I", byte_order='big', multibyte=False))
+        self.assertFieldStreamEqual(b"\x01\x02\x03\x04", 0x01020304, StructField("<I", byte_order='big', multibyte=False))
 
     def test_multibyte(self):
         self.assertFieldStreamEqual(b"\x01\x02\x03\x04", (0x04030201,), StructField("<I", multibyte=True))
