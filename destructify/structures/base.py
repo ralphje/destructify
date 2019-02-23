@@ -34,7 +34,8 @@ class StructureBase(type):
         return new_class
 
     def __len__(cls):
-        return sum((len(f) for f in cls._meta.fields))
+        """Class method that allows you to do ``len(Structure)`` to retrieve the size of a :class:`Structure`."""
+        return sum((len(f) for f in cls._meta.fields)) if hasattr(cls, '_meta') else 0
 
     def add_to_class(cls, name, value):
         # We should call the contribute_to_class method only if it's bound
@@ -79,16 +80,29 @@ class Structure(metaclass=StructureBase):
         return True
 
     def __bytes__(self):
+        """Same as :meth:`to_bytes`, allowing you to use ``bytes(structure)``"""
         return self.to_bytes()
 
     def finalize(self, values):
         """Hook for hooking into the object just before it will be converted to binary data. This can be used to
         modify some values of the structure just before it is being written, e.g. for checksums.
+
+        :param dict values: A dictionary of all values that are to be written to the stream.
+        :return: The same dictionary, including modified values.
         """
         return values
 
     @classmethod
     def from_stream(cls, stream, context=None):
+        """Reads a stream and converts it to a :class:`Structure` instance. You can explicitly provide a
+        :class:`ParsingContext`, otherwise one will be created automatically.
+
+        :param stream: A buffered bytes stream.
+        :param ParsingContext context: A context to use while parsing the stream.
+        :rtype: Structure, int
+        :return: A tuple of the constructed :class:`Structure` and the total amount of bytes read from the stream.
+        """
+
         if context is None:
             context = ParsingContext()
         attrs = {}
@@ -103,6 +117,14 @@ class Structure(metaclass=StructureBase):
         return cls(**attrs), total_consumed
 
     def to_stream(self, stream, context=None):
+        """Writes the current :class:`Structure` to the provided stream. You can explicitly provide a
+        :class:`ParsingContext`, otherwise one will be created automatically.
+
+        :param stream: A buffered bytes stream.
+        :param ParsingContext context: A context to use while writing the stream.
+        :rtype: int
+        :return: The number bytes read from the stream.
+        """
         if context is None:
             context = ParsingContext(structure=self)
 
@@ -124,9 +146,16 @@ class Structure(metaclass=StructureBase):
 
     @classmethod
     def from_bytes(cls, bytes):
+        """A short-hand method of calling :meth:`from_stream`, using bytes rather than a stream, and returns the
+        constructed :class:`Structure` immediately.
+        """
+
         return cls.from_stream(io.BytesIO(bytes))[0]
 
     def to_bytes(self):
+        """A short-hand method of calling :meth:`to_stream`, writing to bytes rather than to a stream. It returns the
+        constructed bytes immediately.
+        """
         bytesio = io.BytesIO()
         self.to_stream(bytesio)
         return bytesio.getvalue()

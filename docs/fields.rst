@@ -1,7 +1,9 @@
+.. _FieldSpec:
+
 ======
 Fields
 ======
-.. module:: destructify.fields
+.. module:: destructify
 
 A field is part of the specification of a Structure. Fields can be very simple: only defining how to convert a
 :const:`bytes` value to a Python representation and vice-versa. They can be much more complicated, however.
