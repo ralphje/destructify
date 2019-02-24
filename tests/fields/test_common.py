@@ -32,6 +32,10 @@ class BytesFieldTestCase(DestructifyTestCase):
             BytesField(terminator=b'\0', padding=b'\0')
         with self.assertRaises(DefinitionError):
             BytesField()
+        with self.assertRaises(DefinitionError):
+            BytesField(terminator_handler='asdf', terminator=b'\0')
+        with self.assertRaises(DefinitionError):
+            BytesField(terminator_handler='until', length=3)
 
     def test_length(self):
         self.assertFieldStreamEqual(b"abc", b"abc", BytesField(length=3))
@@ -126,6 +130,37 @@ class BytesFieldTestCase(DestructifyTestCase):
         self.assertFieldStreamEqual(b"abcdef\0\0", b"abcdef", BytesField(terminator=b"\0\0", length=8))
         self.assertFieldFromStreamEqual(b"a\0bc\0\0def", b"a\0bc", BytesField(terminator=b"\0\0", length=9))
         self.assertFieldStreamEqual(b"abcde\0\0\0", b"abcde\0", BytesField(terminator=b"\0\0", step=2, length=8))
+
+    def test_terminator_handler_consume(self):
+        self.assertFieldStreamEqual(b"abcdef\0", b"abcdef", BytesField(terminator=b"\0", terminator_handler='consume'))
+
+    def test_terminator_handler_include(self):
+        self.assertFieldStreamEqual(b"abcdef\0", b"abcdef\0", BytesField(terminator=b"\0", terminator_handler='include'))
+        with self.assertRaises(WriteError):
+            self.call_field_to_stream(BytesField(terminator=b"\0", terminator_handler='include'), b"asdf")
+        self.call_field_to_stream(BytesField(terminator=b"\0", terminator_handler='include', strict=False), b"asdf")
+
+    def test_terminator_handler_until(self):
+        self.assertFieldFromStreamEqual(b"abcdef\0gh", b"abcdef", BytesField(terminator=b"\0", terminator_handler='until'))
+        self.assertFieldToStreamEqual(b"abcdef", b"abcdef", BytesField(terminator=b"\0", terminator_handler='until'))
+
+    def test_terminator_handler_until_full(self):
+        class Struct(Structure):
+            str0 = BytesField(terminator=b'\0', terminator_handler='until')
+            str1 = BytesField(length=3)
+
+        self.assertStructureStreamEqual(b"asdf\0as", Struct(str0=b'asdf', str1=b'\0as'))
+
+    def test_terminator_handler_consume_length(self):
+        self.assertFieldStreamEqual(b"abcdef\0", b"abcdef",
+                                    BytesField(terminator=b"\0", terminator_handler='consume', length=7))
+
+    def test_terminator_handler_include_length(self):
+        self.assertFieldToStreamEqual(b"abcdef\0", b"abcdef\0",
+                                      BytesField(terminator=b"\0", terminator_handler='include', length=7))
+        with self.assertRaises(WriteError):
+            self.call_field_to_stream(BytesField(terminator=b"\0", terminator_handler='include', length=4), b"asdf")
+        self.call_field_to_stream(BytesField(terminator=b"\0", terminator_handler='include', length=4, strict=False), b"asdf")
 
 
 class BitFieldTest(unittest.TestCase):

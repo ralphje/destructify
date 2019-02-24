@@ -28,10 +28,12 @@ class MagicField(Field):
 
 
 class BytesField(Field):
-    def __init__(self, *args, length=None, terminator=None, step=1, strict=True, padding=None, **kwargs):
+    def __init__(self, *args, length=None, terminator=None, step=1, terminator_handler='consume',
+                 strict=True, padding=None, **kwargs):
         self.length = length
         self.terminator = terminator
         self.step = step
+        self.terminator_handler = terminator_handler
         self.strict = strict
         self.padding = padding
         super().__init__(*args, **kwargs)
@@ -40,6 +42,12 @@ class BytesField(Field):
             raise DefinitionError("The field {} must specify at least a length or terminator.".format(self.full_name))
         if self.length is None and self.padding is not None:
             raise DefinitionError("The field {} specifies padding, but not a length.".format(self.full_name))
+        if self.terminator_handler not in ('consume', 'include', 'until'):
+            raise DefinitionError("The field {} specifies '{}' as terminator handling, but that is invalid."
+                                  .format(self.full_name, self.terminator_handler))
+        if self.terminator_handler == 'until' and self.length is not None:
+            raise DefinitionError("The field {} specifies 'until' as terminator handling, but also has a length."
+                                  .format(self.full_name))
 
     def __len__(self):
         if isinstance(self.length, int):
@@ -109,7 +117,9 @@ class BytesField(Field):
                 c = read[i:i+self.step]
                 value += c
                 if len(c) == self.step and value.endswith(self.terminator):
-                    value = value[:-len(self.terminator)]
+                    # We can expect the consume and include handlers here.
+                    if self.terminator_handler == 'consume':
+                        value = value[:-len(self.terminator)]
                     break
             else:
                 if self.strict:
@@ -131,7 +141,11 @@ class BytesField(Field):
 
         val = self.from_python(value)
         if self.terminator is not None:
-            val += self.terminator
+            # We can expect the consume and include handlers here.
+            if self.terminator_handler == 'consume':
+                val += self.terminator
+            elif self.terminator_handler == 'include' and not val.endswith(self.terminator) and self.strict:
+                raise WriteError("The field {} does not include its terminator.".format(self.full_name))
 
         if length < 0:
             # For negative lengths, we just write to the stream
@@ -172,10 +186,25 @@ class BytesField(Field):
                     return self.to_python(read), len(read)
 
             if read.endswith(self.terminator):
-                return self.to_python(read[:-len(self.terminator)]), len(read)
+                if self.terminator_handler == 'consume':
+                    return self.to_python(read[:-len(self.terminator)]), len(read)
+                elif self.terminator_handler == 'include':
+                    return self.to_python(read), len(read)
+                elif self.terminator_handler == 'until':
+                    read = read[:-len(self.terminator)]
+                    stream.seek(-len(self.terminator), io.SEEK_CUR)
+                    return self.to_python(read), len(read)
 
     def _to_stream_terminated(self, stream, value, context):
-        return context.write_stream(stream, self.from_python(value) + self.terminator)
+        val = self.from_python(value)
+        if self.terminator_handler == 'consume':
+            return context.write_stream(stream, val + self.terminator)
+        elif self.terminator_handler == 'include':
+            if not val.endswith(self.terminator) and self.strict:
+                raise WriteError("The field {} does not include its terminator.".format(self.full_name))
+            return context.write_stream(stream, val)
+        elif self.terminator_handler == 'until':
+            return context.write_stream(stream, val)
 
 
 class FixedLengthField(BytesField):

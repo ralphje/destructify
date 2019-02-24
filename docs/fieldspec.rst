@@ -123,15 +123,17 @@ BytesField
 
       This boolean (defaults to :const:`True`) enables raising errors in the following cases:
 
-      * A :class:`StreamExhaustedError` when there are not sufficient bytes to completely fill the field while reading.
-      * A :class:`StreamExhaustedError` when the terminator is not found while reading.
-      * A :class:`WriteError` when there are not sufficient bytes to fill the field while writing and
+      * A :exc:`StreamExhaustedError` when there are not sufficient bytes to completely fill the field while reading.
+      * A :exc:`StreamExhaustedError` when the terminator is not found while reading.
+      * A :exc:`WriteError` when there are not sufficient bytes to fill the field while writing and
         :attr:`padding` is not set.
-      * A :class:`WriteError` when the field must be padded, but the bytes that are to be written are not a multiple of
+      * A :exc:`WriteError` when the field must be padded, but the bytes that are to be written are not a multiple of
         the size of :attr:`padding`.
-      * A :class:`WriteError` when there are too many bytes to fit in the field while writing.
+      * A :exc:`WriteError` when there are too many bytes to fit in the field while writing.
+      * A :exc:`WriteError` when the terminator is missing from the value, when using the
+        :attr:`terminator_handler` ``include``
 
-      Disabling :attr:`FixedLengthField.strict` is not recommended, as this may cause inadvertent errors.
+      Disabling :attr:`BytesField.strict` is not recommended, as this may cause inadvertent errors.
 
    .. attribute:: BytesField.padding
 
@@ -167,6 +169,20 @@ BytesField
           ...
           >>> TerminatedStructure.from_bytes(b"hello\0world\r\n")
           <TerminatedStructure: TerminatedStructure(foo=b'hello', bar=b'world')>
+
+
+   .. attribute:: BytesField.terminator_handler
+
+      A string defining what to do with the terminator as soon as it is encountered. You have three options:
+
+      ``consume``
+         This is the default handler, and consumes the terminator, leaving it off the resulting value.
+      ``include``
+         This handler will include the entire terminator into the resulting value. You must also write it back
+         yourself.
+      ``until``
+         This handler is only available when you are not using :attr:`length`, allowing you to consume up until, but not
+         including the terminator. This means that the next field will include the terminator.
 
    This class can be used trivially to extend functionality. For instance, :class:`StringField` is a subclass of this
    field. To aid subclassing, two additional hooks are provided:
