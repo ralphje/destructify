@@ -255,7 +255,7 @@ class BitField(FixedLengthField):
 
 
 class StringField(BytesField):
-    def __init__(self, *args, encoding='utf-8', errors='strict', **kwargs):
+    def __init__(self, *args, encoding=None, errors='strict', **kwargs):
         self.encoding = encoding
         self.errors = errors
         super().__init__(*args, **kwargs)
@@ -265,6 +265,16 @@ class StringField(BytesField):
 
     def from_python(self, value):
         return super().from_python(value.encode(self.encoding, self.errors))
+
+    def contribute_to_class(self, cls, name):
+        super().contribute_to_class(cls, name)
+
+        # If byte_order is specified in the meta of the structure, we change our own default byte order (if not set)
+        if self.bound_structure._meta.encoding and not self.encoding:
+            self.encoding = self.bound_structure._meta.encoding
+
+        if self.encoding is None:
+            raise DefinitionError("No encoding for %s provided" % self.full_name)
 
 
 class IntegerField(FixedLengthField):

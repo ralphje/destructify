@@ -29,7 +29,7 @@ class BaseFieldTestCase(unittest.TestCase):
             thing = MyField(BitField(1))
 
         self.assertEqual("thing", Struct._meta.fields[0].base_field.name)
-        self.assertEqual("Struct.thing", Struct._meta.fields[0].base_field.full_name)
+        self.assertEqual("struct.thing", Struct._meta.fields[0].base_field.full_name)
         self.assertIs(Struct._meta.fields[0].bound_structure, Struct._meta.fields[0].base_field.bound_structure)
 
 

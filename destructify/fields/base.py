@@ -54,7 +54,7 @@ class Field:
     @property
     def full_name(self):
         if self.bound_structure is not None:
-            return self.bound_structure.__name__ + "." + self.name
+            return self.bound_structure._meta.structure_name + "." + self.name
         return self.name
 
     def __len__(self):

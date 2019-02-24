@@ -217,7 +217,8 @@ StringField
 
    .. attribute:: StringField.encoding
 
-      The encoding of the string. Defaults to ``utf-8``, but can be any encoding supported by Python.
+      The encoding of the string. This defaults to the value set on the :class:`StructureOptions`, which defaults to
+      ``utf-8``, but can be any encoding supported by Python.
 
    .. attribute:: StringField.errors
 

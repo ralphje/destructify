@@ -219,9 +219,38 @@ are precisely.
 As it is common to modify some fields just before they have been written, you may also choose to override
 :class:`Structure.finalize`.
 
-Structure class
-===============
+The Meta class
+==============
+
+.. autoclass:: StructureOptions
+
+    The :class:`StructureOptions` class is the object that is automatically created when you create a :class:`Structure`
+    and is accessible through :attr:`Structure._meta`. The information in this object is based on the data you specify
+    in the class :class:`Structure.Meta` in the definition of your structure.
+
+   .. automethod:: StructureOptions.get_field_by_name
+
+   .. attribute:: object_name
+
+      The name of the structure's definition class. Defaults to the name of your class.
+
+   .. attribute:: structure_name
+
+      The name of the structure. Defaults to the lowercased name of your class.
+
+   .. attribute:: byte_order
+
+      The default byte-order for fields in this structure. Is not set by default, and can be ``little`` or ``big``.
+
+   .. attribute:: encoding
+
+      The default character encoding for fields in this structure. Defaults to ``utf-8``.
+
+Python API
+==========
 .. autoclass:: Structure
+
+   You use :class:`Structure` as the base class for the definition of your structures.
 
    .. automethod:: Structure.from_stream
 
@@ -243,14 +272,6 @@ Structure class
 
 .. autoclass:: StructureBase
 
+   This is the metaclass of :class:`Structure`.
+
    .. automethod:: StructureBase.__len__
-
-.. autoclass:: StructureOptions
-
-   .. automethod:: StructureOptions.get_field_by_name
-
-   .. attribute:: object_name
-
-   .. attribute:: structure_name
-
-   .. attribute:: byte_order

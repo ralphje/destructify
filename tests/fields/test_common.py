@@ -279,7 +279,7 @@ class StructureFieldTest(unittest.TestCase):
 
 class StringFieldTest(DestructifyTestCase):
     def test_fixed_length(self):
-        self.assertFieldStreamEqual(b"abcde", 'abcde', StringField(length=5))
+        self.assertFieldStreamEqual(b"abcde", 'abcde', StringField(length=5, encoding='utf-8'))
         self.assertFieldStreamEqual(b'\xfc\0b\0e\0r\0', '\xfcber', StringField(length=8, encoding='utf-16-le'))
         self.assertFieldStreamEqual(b'b\0y\0e\0b\0y\0e\0', 'byebye', StringField(length=12, encoding='utf-16-le'))
 
@@ -293,8 +293,36 @@ class StringFieldTest(DestructifyTestCase):
                                         StringField(length=6, encoding='utf-16-le'))
 
     def test_terminated(self):
-        self.assertFieldStreamEqual(b"abcde\0", 'abcde', StringField(terminator=b'\0'))
+        self.assertFieldStreamEqual(b"abcde\0", 'abcde', StringField(terminator=b'\0', encoding='utf-8'))
         self.assertFieldStreamEqual(b'b\0y\0e\0\0\0', 'bye', StringField(terminator=b'\0\0', step=2, encoding='utf-16-le'))
+
+    def test_encoding_from_meta(self):
+        with self.assertRaises(DefinitionError):
+            class Struct(Structure):
+                str = StringField(length=2)
+                class Meta:
+                    encoding = None
+
+        class Struct2(Structure):
+            str = StringField(length=2)
+            class Meta:
+                encoding = 'utf-8'
+
+        self.assertEqual("ba", Struct2.from_bytes(b"ba").str)
+
+        class Struct3(Structure):
+            str = StringField(length=2)
+            class Meta:
+                encoding = 'utf-16-le'
+
+        self.assertEqual("b", Struct3.from_bytes(b"b\0").str)
+
+        class Struct4(Structure):
+            str = StringField(length=2, encoding='utf-8')
+            class Meta:
+                encoding = 'utf-16-le'
+
+        self.assertEqual("ba", Struct4.from_bytes(b"ba").str)
 
 
 class IntegerFieldTest(DestructifyTestCase):
