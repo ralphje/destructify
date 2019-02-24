@@ -1,7 +1,7 @@
 import inspect
 import io
 
-from destructify.fields.parsing import ParsingContext
+from destructify.fields.parsing import ParsingContext, FieldParsingInformation
 from destructify.structures.options import StructureOptions
 
 
@@ -105,16 +105,18 @@ class Structure(metaclass=StructureBase):
 
         if context is None:
             context = ParsingContext()
-        attrs = {}
+        context.field_values = {}
         total_consumed = 0
         for field in cls._meta.fields:
-            context.parsed_fields = attrs
+            start_pos = stream.tell()
             result, consumed = field.from_stream(stream, context)
-            attrs[field.name] = result
             total_consumed += consumed
-            stream.seek(total_consumed)
 
-        return cls(**attrs), total_consumed
+            context.field_values[field.name] = result
+            context.parsed_fields[field.name] = FieldParsingInformation(result, start_pos, stream.tell())
+            #stream.seek(total_consumed)
+
+        return cls(**context.field_values), total_consumed
 
     def to_stream(self, stream, context=None):
         """Writes the current :class:`Structure` to the provided stream. You can explicitly provide a
@@ -133,12 +135,14 @@ class Structure(metaclass=StructureBase):
         for field in self._meta.fields:
             values[field.name] = field.get_final_value(getattr(self, field.name), context)
 
-        values = self.finalize(values)
-        context.parsed_fields = values
+        context.field_values = self.finalize(values)
 
         total_written = 0
         for field in self._meta.fields:
-            total_written += field.to_stream(stream, values[field.name], context)
+            start_pos = stream.tell()
+            total_written += field.to_stream(stream, context.field_values[field.name], context)
+            context.parsed_fields[field.name] = FieldParsingInformation(context.field_values[field.name],
+                                                                        start_pos, stream.tell())
 
         total_written += context.finalize_stream(stream)
 

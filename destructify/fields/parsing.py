@@ -3,24 +3,40 @@ import io
 from destructify.exceptions import StreamExhaustedError, UnknownDependentFieldError, MisalignedFieldError
 
 
+class FieldParsingInformation:
+    def __init__(self, value, start=None, end=None):
+        self.value = value
+        self.start = start
+        self.end = end
+
+
 class ParsingContext:
     """A context that is passed around to different methods during reading from and writing to a stream. It is used
     to contain context for the field that is being parsed.
     """
 
-    def __init__(self, *, structure=None, parsed_fields=None, parent=None):
+    def __init__(self, *, structure=None, field_values=None, parent=None):
         self.structure = structure
-        self.parsed_fields = parsed_fields
-        self.bits_remaining = None
+        self.field_values = field_values
         self.parent = parent
+        self.parsed_fields = {}
+        self.bits_remaining = None
+
+    @property
+    def root(self):
+        """Retrieves the uppermost :class:`ParsingContext` from this :class:`ParsingContext`. May return itself."""
+        root = self
+        while root.parent is not None and root.parent != root:
+            root = root.parent
+        return root
 
     def __getitem__(self, name):
         """Retrieves the named item from the structure (if known) or (if unknown) from the dict of already parsed
         fields.
         """
 
-        if self.parsed_fields and name in self.parsed_fields:
-            return self.parsed_fields[name]
+        if self.field_values and name in self.field_values:
+            return self.field_values[name]
         elif self.structure and hasattr(self.structure, name):
             return getattr(self.structure, name)
         else:

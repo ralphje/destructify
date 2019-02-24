@@ -160,7 +160,8 @@ class BytesFieldTestCase(DestructifyTestCase):
                                       BytesField(terminator=b"\0", terminator_handler='include', length=7))
         with self.assertRaises(WriteError):
             self.call_field_to_stream(BytesField(terminator=b"\0", terminator_handler='include', length=4), b"asdf")
-        self.call_field_to_stream(BytesField(terminator=b"\0", terminator_handler='include', length=4, strict=False), b"asdf")
+        self.call_field_to_stream(BytesField(terminator=b"\0", terminator_handler='include', length=4, strict=False),
+                                  b"asdf")
 
 
 class BitFieldTest(unittest.TestCase):

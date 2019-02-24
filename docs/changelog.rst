@@ -22,6 +22,7 @@ significantly.
 * Renamed hook functions :meth:`Field.from_stream` and :meth:`Field.to_stream` to
   :meth:`BytesField.to_python` and :meth:`BytesField.from_python`, avoiding confusion
 * Removed all byte-order specific subclasses from :class:`StructField`.
+* Add :attr:`ParsingContext.parsed_fields` for information about the parsing structure.
 
 v0.1.0 (2019-02-17)
 -------------------

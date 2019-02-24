@@ -198,6 +198,14 @@ Parsing context
 
       Access to the parent context (useful when parsing a Structure inside a Structure).
 
+   .. autoattribute:: ParsingContext.root
+
+   .. attribute:: ParsingContext.parsed_fields
+
+      This is a dictionary of names to information about parsed fields. You can use this to access information of how
+      the fields were parsed. This is typically for debugging purposes, or displaying information about parsing
+      structures.
+
    When you are implementing a field yourself, you get a :class:`ParsingContext` when reading from and writing to a
    stream, meaning you will probably use one the following methods:
 
