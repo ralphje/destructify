@@ -148,6 +148,13 @@ As you can see, this is not that hard! We have omitted some additional checks fr
 have actually read 1 byte (and should raise :exc:`StreamExhaustedError` if it isn't) and verify that the value is
 positive when writing, but other than that, this field should work.
 
+In this case it is easily accomplished, but you must always make sure that the stream cursor is at the correct position
+after the :meth:`Field.to_stream` and :meth:`Field.from_stream` methods are done. Typically, this will hold::
+
+    tell_before = stream.tell()
+    result = Field.to_stream(stream, ...)   # similar for from_stream
+    tell_before + result == stream.tell()
+
 Testing your field
 ------------------
 Now, the only thing left is writing unittests for this. Since this field is mostly simple idempotent, we can use these

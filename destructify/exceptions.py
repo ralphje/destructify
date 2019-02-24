@@ -26,5 +26,9 @@ class MisalignedFieldError(ParseError):
     pass
 
 
+class WrongMagicError(ParseError):
+    pass
+
+
 class WriteError(DestructifyError):
     pass

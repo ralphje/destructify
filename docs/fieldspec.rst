@@ -58,6 +58,17 @@ and can be defined on every class:
    obtained by calling ``Field.get_overridden_value(value, context)``. Note, however, that you probably want to call
    :meth:`Field.get_final_value` instead.
 
+MagicField
+==========
+.. autoclass:: MagicField
+
+   The :class:`MagicField` is intended to read/write a specific magic string from and to a stream. If anything else is
+   read or written, an exception is raised. Note that the :attr:`Field.default` is also set to the magic.
+
+   .. attribute:: magic
+
+      The magic bytes that must be checked against.
+
 BytesField
 ==========
 .. autoclass:: BytesField

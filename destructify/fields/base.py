@@ -138,19 +138,27 @@ class Field:
         return self.get_overridden_value(value, context)
 
     def from_stream(self, stream, context):
-        """Given a stream of bytes object, consumes a given bytes object to Python representation.
+        """Given a stream of bytes object, consumes a given bytes object to Python representation. The given stream
+        is already at the start of the field. This method must ensure that the stream is after the end position of the
+        field after reading. In other words, the following will typically hold true::
+
+            stream_at_start.tell() + result[1] == stream_at_end.tell()
 
         The default implementation is to raise a :exc:`NotImplementedError` and subclasses must override this function.
 
-        :param io.BufferedIOBase stream: The IO stream to consume from. The current position should already be set to
-            the total of all previously parsed values.
+        :param io.BufferedIOBase stream: The IO stream to consume from. The current position is already set to the start
+            position of the field.
         :param ParsingContext context: The context of this field.
         :returns: a tuple: the parsed value in its Python representation, and the amount of consumed bytes
         """
         raise NotImplementedError()
 
     def to_stream(self, stream, value, context):
-        """Writes a value to the stream, and returns the amount of bytes written.
+        """Writes a value to the stream, and returns the amount of bytes written. The given stream will already be
+        at the start of the field, and this method must ensure that the stream cursor is after the end position of the
+        field. In other words::
+
+            stream_at_start.tell() + result == stream_at_end.tell()
 
         The default implementation is to raise a :exc:`NotImplementedError` and subclasses must override this function.
 
