@@ -41,7 +41,7 @@ class Field:
 
     _ctype = None
 
-    def __init__(self, name=None, default=NOT_PROVIDED, override=NOT_PROVIDED):
+    def __init__(self, *, name=None, default=NOT_PROVIDED, override=NOT_PROVIDED):
         self.bound_structure = None
 
         self.name = name

@@ -248,6 +248,35 @@ class IntegerField(FixedLengthField):
                 raise DefinitionError("No byte_order for %s provided" % self.full_name)
 
 
+class VariableLengthQuantityField(Field):
+    def from_stream(self, stream, context):
+        result = 0
+        count = 0
+        while True:
+            c = context.read_stream(stream, 1)
+            count += 1
+            if len(c) != 1:
+                raise StreamExhaustedError("Could not read 1 byte while parsing field {}".format(self.full_name))
+            c = c[0]  # get integer value
+
+            result <<= 7
+            result += c & 0x7f
+            if not c & 0x80:
+                break
+        return result, count
+
+    def to_stream(self, stream, value, context):
+        if value < 0:
+            raise OverflowError()
+
+        result = [value & 0x7f]
+        value >>= 7
+        while value > 0:
+            result.insert(0, value & 0x7f | 0x80)
+            value >>= 7
+        return context.write_stream(stream, bytes(result))
+
+
 class StructureField(Field):
     def __init__(self, structure, *args, length=None, **kwargs):
         self.structure = structure

@@ -69,49 +69,6 @@ their value as attribute. Obtaining the binary structure is then as easy as conv
     >>> bytes(person)
     b"Alice\x07\xc9\xff\xff\xff\x9c"
 
-Field types
-===========
-In the above example, we have shown some field types, but Destructify comes with dozens of different built-in fields.
-Each of these specifies a few different things:
-
-* How to consume precisely enough bytes from a stream of bytes
-* How to convert these bytes to a Python representation
-* How to convert this back to a bytes representation
-* How to write this back to a stream of bytes
-
-It is not possible to make a general assumption about all fields, but most fields combine different methods of consuming
-and writing data to and from a stream, with a single Python representation. Taking the :class:`StringField` as an
-example, you may have noticed that we are only able to fit 5-byte names in this field. What if we had longer or shorter
-names? Luckily, :class:`StringField` allows you to pass different keyword-arguments to define how this works:
-
-``StringField(length=5)``
-  We have teen this before, this allows us to read precisely five bytes and interpret this as a str.
-
-``StringField(length=20, padding=b' ')``
-  This still reads 20 bytes from the field, but discards all spaces from the right as being padding. This allows us to
-  write names with up to 20 characters in width, and fill the rest with spaces.
-
-``StringField(terminator=b'\0')``
-  This is a totally different method of writing a name. This reads the name until it encounters a NULL-byte. This is
-  typically how strings are represented in C, and are called NULL-terminated strings. The advantage of this is that the
-  name can be anywhere from zero to infinity bytes long, as long as it is terminated with a NULL-byte (and the name
-  itself does not contain any NULL-bytes, which is unlikely).
-
-``StringField(length=20, terminator=b'\0')``
-  This combines the above two methods: first 20 bytes are read from the stream, and then everything after the first
-  NULL-byte is discarded. This is different from defining length with padding, as defining a terminator will allow
-  Destructify to work from left to right and stop at the first occurence of the terminator, while the padding method
-  will require it to work from right to left and stop just before the first other character. Another difference is that
-  this field must contain precisely 20 characters when writing, as we have not defined how to pad the remaining
-  length if we have insufficient bytes.
-
-``StringField(length=20, terminator=b'\0', padding=b'\0')``
-  This is the best of all worlds, allowing us to read 20 bytes, terminate the relevant part at the NULL-terminator while
-  reading, and allow us to write shorter-length values as these will be padded with NULL-bytes. This is usually how
-  you'd implement fixed-length C-style strings.
-
-Full specification of built-in fields can be found in :ref:`FieldSpec`. If none of these fields does exactly what you
-need, you may consider extending one of the built-in fields, or even implementing your own.
 
 C-style operations
 ==================
@@ -132,7 +89,88 @@ can't determine this length anymore::
         (...)
     destructify.exceptions.ImpossibleToCalculateLengthError
 
-TODO: as_cstruct()
+Similarly, you can use :meth:`Structure.as_cstruct` to see how you'd write the same structure in a C-style struct. Note
+that
+
+Field types
+===========
+In the first example, we have shown some field types, but Destructify comes with dozens of different built-in fields.
+Each of these is used to define how a piece of bytes is to be interpreted and how it is to be written to bytes again.
+
+It is not possible to make a general assumption about all fields, but most fields combine different methods of consuming
+and writing data to and from a stream, with a single Python representation. Taking the :class:`StringField` as an
+example, you may have noticed that we are only able to fit 5-byte names in this field. What if we had longer or shorter
+names? Luckily, :class:`StringField` allows you to pass different keyword-arguments to define how this works.
+
+We dive deeper into the different ways :class:`StringField` operates in the section :ref:`StringFieldExample`.
+A full specification of built-in fields can be found in :ref:`FieldSpec`. If none of these fields does exactly what you
+need, you may consider extending one of the built-in fields, or even implementing your own.
+
+Depending on other fields
+=========================
+Until now, we have been using fixed length fields, without any dependency on other fields. However, it is not untypical
+for a field to have its length set by some other property. Take the following example::
+
+    import destructify
+
+    class DependingStructure(destructify.Structure):
+        length = destructify.IntegerField(1)
+        content = destructify.BytesField(length='length')
+
+Since the :attr:`BytesField.length` attribute is special and allows you to set a string referencing another field,
+you can now simply do the following::
+
+    >>> DependingStructure(content=b"hello world").to_bytes()
+    b'\x0bhello world'
+    >>> DependingStructure.from_bytes(b'\x06hello!')
+    <DependingStructure: DependingStructure(length=6, content=b'hello!')>
+
+Actually, there's some magic involved here, and that centers around the :class:`ParsingContext` class. This class is
+passed around while parsing from and writing to a stream, and filled with information about the current process. This
+allows you to reference fields that have been parsed before the current field. This is what happens when you pass a
+string to the :attr:`BytesField.length` attribute: it is interpreted as a field name and obtained from the context
+while parsing and writing the data.
+
+All of this does not entirely explain why writing works, as how does the ``length`` field know that it needs to get the
+length from the ``content`` field? That is because there's something else going on in the background: when set to a
+string, the :attr:`BytesField` automatically specifies the :attr:`Field.override` of the ``length`` field to be set to
+another value, just before it is being written.
+
+This is nice and all, but what if the length is actually some calculation that is more advanced than simply taking the
+length? For instance, what if the length field includes its own length? This is also very easy! ::
+
+    import destructify
+
+    class DependingStructure(destructify.Structure):
+        length = destructify.IntegerField(length=4, byte_order='big', signed=False,
+                                          override=lambda c, v: len(c['content']) + 4 if v is None else v)
+        content = destructify.BytesField(length=lambda c: c['length'] - 4)
+
+As you can spot, we now explicitly state using lambda functions how to get the length when we are reading the field,
+and also how to set the length when we are writing the field.
+
+The :attr:`Field.override` we specify, receives the
+current :attr:`ParsingContext` and the current value. Using attribute access on the  :attr:`ParsingContext`, we get the
+length of the ``content`` field. We have added in a check to not override the value of
+``length`` when it is already set to something else, allowing us to explicitly write 'wrong' values if we need to.
+
+Similarly, the :attr:`BytesField.length` accepts a function taking a single argument: the :attr:`ParsingContext`. A
+simple attribute access allows us to get the current value of the just-before parsed ``length`` field.
+
+Several fields allow you to specify advanced structures such as these, allowing you to dynamically modify how your
+structure is built. See :ref:`FieldSpec` for a full listing of all the fields and how you can specify calculated
+values.
+
+Streams
+=======
+Until now, you may have noticed we have been using :meth:`Structure.from_bytes` and :meth:`Structure.to_bytes` to
+convert from and to bytes. In fact, these are convenience methods, as Destructify actually works on streams. You can
+use this to simply open a file and parse this, without needing to convert it to bytes first::
+
+    with open("file.png", "rb") as f:
+        structure = MyStructure.from_stream(f)
+
+This allows you to read in large files into a Python structure.
 
 Structure methods
 =================
@@ -178,6 +216,9 @@ method if you want to retain original behaviour and return its value (that's wha
 note that we pass the original arguments of the function through to the original function, without defining what these
 are precisely.
 
+As it is common to modify some fields just before they have been written, you may also choose to override
+:class:`Structure.finalize`.
+
 Structure class
 ===============
 .. autoclass:: Structure
@@ -196,6 +237,20 @@ Structure class
 
    .. automethod:: Structure.as_cstruct
 
+   .. attribute:: Structure._meta
+
+      This allows you to access the :class:`StructureOptions` class of this :class:`Structure`.
+
 .. autoclass:: StructureBase
 
    .. automethod:: StructureBase.__len__
+
+.. autoclass:: StructureOptions
+
+   .. automethod:: StructureOptions.get_field_by_name
+
+   .. attribute:: object_name
+
+   .. attribute:: structure_name
+
+   .. attribute:: byte_order

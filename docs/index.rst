@@ -32,6 +32,7 @@ Contents:
 
    structure
    fields
+   fieldspec
    changelog
 
 
