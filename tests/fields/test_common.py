@@ -1,7 +1,8 @@
+import io
 import unittest
 
 from destructify import Structure, BitField, FixedLengthField, StructureField, MisalignedFieldError, \
-    StringField, IntegerField, BytesField, VariableLengthQuantityField, MagicField, WrongMagicError
+    StringField, IntegerField, BytesField, VariableLengthQuantityField, MagicField, WrongMagicError, ParsingContext
 from destructify.exceptions import DefinitionError, StreamExhaustedError, WriteError
 from tests import DestructifyTestCase
 
@@ -143,6 +144,19 @@ class BytesFieldTestCase(DestructifyTestCase):
     def test_terminator_handler_until(self):
         self.assertFieldFromStreamEqual(b"abcdef\0gh", b"abcdef", BytesField(terminator=b"\0", terminator_handler='until'))
         self.assertFieldToStreamEqual(b"abcdef", b"abcdef", BytesField(terminator=b"\0", terminator_handler='until'))
+
+    def test_terminator_handler_until_with_peek(self):
+        class PeekableBytesIO(io.BytesIO):
+            def peek(self, size=-1):
+                result = self.read(size)
+                self.seek(-len(result), io.SEEK_CUR)
+                return result
+
+        pio = PeekableBytesIO(b"abcdef\0gh")
+        field = BytesField(terminator=b"\0", terminator_handler='until')
+        result = field.from_stream(pio, ParsingContext())
+        self.assertEqual(b"abcdef", result[0])
+        self.assertEqual(b"\0", pio.read(1))
 
     def test_terminator_handler_until_full(self):
         class Struct(Structure):

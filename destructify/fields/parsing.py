@@ -193,6 +193,12 @@ class Substream:
         if stop is not None:
             self.length = stop - self.start
 
+    def __getattribute__(self, item):
+        if item in ('peek', 'read', 'read1', 'readall', 'readinto', 'readinto1', 'readline', 'readlines', 'write') and \
+                not hasattr(self.raw, item):
+            raise AttributeError()
+        return super().__getattribute__(item)
+
     def __enter__(self):
         return self
 

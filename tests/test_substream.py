@@ -149,3 +149,9 @@ class SubstreamTest(unittest.TestCase):
             s.close()
 
         self.assertEqual(8280, stream.tell())
+
+    def test_attribute_that_is_not_present_in_raw(self):
+        stream = io.BytesIO(b"")
+        self.assertEqual(False, hasattr(stream, 'peek'))
+        stream.peek = lambda: None
+        self.assertEqual(True, hasattr(stream, 'peek'))

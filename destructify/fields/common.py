@@ -176,6 +176,11 @@ class BytesField(Field):
     def _from_stream_terminated(self, stream, context):
         read = b""
         while True:
+            if self.terminator_handler == 'until' and hasattr(stream, 'peek'):
+                # Optimize using .peek if available, so we don't have to seek back.
+                if stream.peek(len(self.terminator)) == self.terminator:
+                    return self.to_python(read), len(read)
+
             c = context.read_stream(stream, self.step)
             read += c
             if len(c) != self.step:
@@ -190,7 +195,7 @@ class BytesField(Field):
                     return self.to_python(read[:-len(self.terminator)]), len(read)
                 elif self.terminator_handler == 'include':
                     return self.to_python(read), len(read)
-                elif self.terminator_handler == 'until':
+                elif self.terminator_handler == 'until' and not hasattr(stream, 'peek'):
                     read = read[:-len(self.terminator)]
                     stream.seek(-len(self.terminator), io.SEEK_CUR)
                     return self.to_python(read), len(read)
