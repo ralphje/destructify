@@ -46,9 +46,14 @@ class ParsingContext:
         """Allows you to do context.value instead of context['value']."""
         return self.__getitem__(name)
 
-    def read_stream(self, stream, size=-1):
+    def read_stream(self, stream, size=-1, buffer=None):
         """Alias for ``stream.read(size)``, but raises an :exc:`MisalignedFieldError` when bits have still not been
-        parsed (used by :class:`BitField`)
+        parsed (used by :class:`BitField`).
+
+        If buffer is set, the stream will be read until EOF or until
+        all required bytes are read. This is a little bit overhead, and not required if the stream buffers itself. The
+        default (None), will check if there is a read1 method on the stream. If this is the case, it is probably a
+        buffered stream and does not require buffering from this function.
 
         :return: the bytes read
         """
@@ -56,7 +61,21 @@ class ParsingContext:
             raise MisalignedFieldError("A field following a BitField is misaligned. %s bits are still in the buffer"
                                        % len(self.bits_remaining))
 
-        return stream.read(size)
+        if buffer is None:
+            # If there is a read1 function on the stream, it is a buffered stream, and we do not require
+            # to buffer ourselves.
+            buffer = not hasattr(stream, 'read1')
+
+        if buffer:
+            result = bytearray()
+            while size < 0 or len(result) < size:
+                b = stream.read(size)
+                if not b:
+                    break
+                result += b
+            return bytes(result)
+        else:
+            return stream.read(size)
 
     def write_stream(self, stream, value):
         """Alias for ``stream.write(value)``, but also ensures that remaining bits (used by :class:`BitField`) are
