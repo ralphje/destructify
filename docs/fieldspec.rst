@@ -25,7 +25,7 @@ and can be defined on every class:
    You can set it to one of the following:
 
    * A callable with zero arguments
-   * A callable taking a :class:`ParsingContext` object
+   * A callable taking a :attr:`ParsingContext.f` object
    * A value
 
    All of the following are valid usages of the default attribute::
@@ -47,7 +47,7 @@ and can be defined on every class:
    You can set it to one of the following:
 
    * A value
-   * A callable taking a :class:`ParsingContext` object and the current value of the field
+   * A callable taking a :attr:`ParsingContext.f` object and the current value of the field
 
    For instance::
 
@@ -91,7 +91,7 @@ BytesField
       You can set this attribute to one of the following:
 
       * A callable with zero arguments
-      * A callable taking a :class:`ParsingContext` object
+      * A callable taking a :attr:`ParsingContext.f` object
       * A string that represents the field name that contains the length
       * An integer
 
@@ -423,7 +423,7 @@ ArrayField
       You can set it to one of the following:
 
       * A callable with zero arguments
-      * A callable taking a :class:`ParsingContext` object
+      * A callable taking a :attr:`ParsingContext.f` object
       * A string that represents the field name that contains the size
       * An integer
 
@@ -436,7 +436,7 @@ ArrayField
       You can set it to one of the following:
 
       * A callable with zero arguments
-      * A callable taking a :class:`ParsingContext` object
+      * A callable taking a :attr:`ParsingContext.f` object
       * A string that represents the field name that contains the size
       * An integer
 
@@ -473,7 +473,7 @@ ConditionalField
       You can set it to one of the following:
 
       * A callable with zero arguments
-      * A callable taking a :class:`ParsingContext` object
+      * A callable taking a :attr:`ParsingContext.f` object
       * A string that represents the field name that evaluates to true or false. Note that ``b'\0'`` evaluates to true.
       * A value that is to be evaluated
 
@@ -498,7 +498,7 @@ SwitchField
       You can set it to one of the following:
 
       * A callable with zero arguments
-      * A callable taking a :class:`ParsingContext` object
+      * A callable taking a :attr:`ParsingContext.f` object
       * A string that represents the field name that evaluates to the value of the condition
       * A value that is to be evaluated
 

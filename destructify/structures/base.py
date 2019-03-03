@@ -105,16 +105,12 @@ class Structure(metaclass=StructureBase):
 
         if context is None:
             context = ParsingContext()
-        context.field_values = {}
+
         total_consumed = 0
         for field in cls._meta.fields:
-            start_pos = stream.tell()
             result, consumed = field.from_stream(stream, context)
+            context.fields[field.name] = FieldParsingInformation(result, start=total_consumed, length=consumed)
             total_consumed += consumed
-
-            context.field_values[field.name] = result
-            context.parsed_fields[field.name] = FieldParsingInformation(result, start_pos, stream.tell())
-            #stream.seek(total_consumed)
 
         return cls(**context.field_values), total_consumed
 
@@ -139,10 +135,10 @@ class Structure(metaclass=StructureBase):
 
         total_written = 0
         for field in self._meta.fields:
-            start_pos = stream.tell()
-            total_written += field.to_stream(stream, context.field_values[field.name], context)
-            context.parsed_fields[field.name] = FieldParsingInformation(context.field_values[field.name],
-                                                                        start_pos, stream.tell())
+            value = context.fields[field.name].value
+            written = field.to_stream(stream, value, context)
+            context.fields[field.name] = FieldParsingInformation(value, start=total_written, length=written)
+            total_written += written
 
         total_written += context.finalize_stream(stream)
 

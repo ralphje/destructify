@@ -190,21 +190,72 @@ Parsing context
 
        context['field_name']
 
-   But, as a shorthand, you can also access it as an attribute::
+   But, as a shorthand, you can also access it as an attribute of the :attr:`f` object::
 
-       context.field_name
+       context.f.field_name
+
+
+   .. describe:: context[key]
+
+      Returns the value of the specified *key*, either from the already parsed fields, or from the underlying structure,
+      depending on the situation.
+
+   .. attribute:: ParsingContext.f
+
+      This object is typically used in ``lambda`` closures in :class:`Field` declarations.
+
+      The :attr:`f` attribute allows you to access fields from this context, using attribute access. This is similar to
+      using ``context[key]``, but provides a little bit cleaner syntax. This object is separated from the scope of
+      :attr:`ParsingContext` to avoid any name collisions with field names. (For instance, a field named ``f`` would
+      be impossible to reach otherwise).
+
+      .. describe:: f.name
+
+         Access the current value of the named field in the :class:`ParsingContext`, equivalent to
+         ``ParsingContext[name]``
+
+      .. describe:: f[name]
+
+         Alias for attribute access to allow accessing names that are dynamic or collide with the namespace (see below)
+
+      Two attributes are offered for parent and root access, and a third one to access the :class:`ParsingContext`.
+      These names still collide with field names you may want to specify, but the ``f``-object is guaranteed to not add
+      any additional name collisions in minor releases.
+
+      .. attribute:: ParsingContext.f.parent
+
+         Returns the :attr:`ParsingContext.f` attribute of the :attr:`ParsingContext.parent` object, so you can write
+         ``f.parent.parent.field``, which is equivalent to ``context.parent.parent['field']``.
+
+         If you need to access a field named ``parent``, you must use ``f['parent']``
+
+      .. attribute:: ParsingContext.f.root
+
+         Returns the :attr:`ParsingContext.f` attribute of the :attr:`ParsingContext.root` object, so you can write
+         ``f.root.field``, which is equivalent to ``context.root['field']``
+
+         If you need to access a field named ``root``, you must use ``f['root']``
+
+      .. attribute:: ParsingContext.f.context
+
+         Returns the actual :class:`ParsingContext`. Used in cases where a :attr:`f`-object is only provided.
+
+         If you need to access a field named ``context``, you must use ``f['context']``
 
    .. attribute:: ParsingContext.parent
 
-      Access to the parent context (useful when parsing a Structure inside a Structure).
+      Access to the parent context (useful when parsing a Structure inside a Structure). May be :const:`None` if this is
+      the uppermost context.
 
    .. autoattribute:: ParsingContext.root
 
-   .. attribute:: ParsingContext.parsed_fields
+   .. attribute:: ParsingContext.fields
 
       This is a dictionary of names to information about parsed fields. You can use this to access information of how
       the fields were parsed. This is typically for debugging purposes, or displaying information about parsing
       structures.
+
+   .. autoattribute:: ParsingContext.field_values
 
    When you are implementing a field yourself, you get a :class:`ParsingContext` when reading from and writing to a
    stream, meaning you will probably use one the following methods:
@@ -227,7 +278,10 @@ Base field
 
    A :class:`Field` also defines the following methods:
 
-   .. automethod:: Field.__len__
+   .. describe:: len(field)
+
+      You can call ``len`` on a field to retrieve its byte length. It can either return a value that makes sense, or it
+      will raise an :exc:`ImpossibleToCalculateLengthError` when the length depends on something that is not known yet.
 
    .. automethod:: Field.initialize
 

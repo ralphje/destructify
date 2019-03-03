@@ -1,13 +1,14 @@
 import io
+import types
 
 from destructify.exceptions import StreamExhaustedError, UnknownDependentFieldError, MisalignedFieldError
 
 
 class FieldParsingInformation:
-    def __init__(self, value, start=None, end=None):
+    def __init__(self, value, start=None, length=None):
         self.value = value
         self.start = start
-        self.end = end
+        self.length = length
 
 
 class ParsingContext:
@@ -17,10 +18,55 @@ class ParsingContext:
 
     def __init__(self, *, structure=None, field_values=None, parent=None):
         self.structure = structure
-        self.field_values = field_values
+        self.field_values = field_values if field_values else {}
         self.parent = parent
-        self.parsed_fields = {}
         self.bits_remaining = None
+
+        self.f = ParsingContext.F(self)
+
+    class F:
+        """A :class:`ParsingContext.F` is a simple object that allows you to access parsed values in the context through
+        attribute access.
+        """
+
+        def __init__(self, context):
+            self.__context = context
+
+        def __getattr__(self, item):
+            return self.__context[item]
+
+        def __getitem__(self, name):
+            return self.__context[name]
+
+        @property
+        def context(self):
+            return self.__context
+
+        @property
+        def parent(self):
+            return self.__context.parent.f
+
+        @property
+        def root(self):
+            return self.__context.root.f
+
+    @property
+    def field_values(self):
+        """Represents a immutable view on **all** field values from :attr:`fields`. This is highly inefficient if you
+        only need to access a single value (use ``context[key]``). The resulting dictionary is immutable.
+
+        This attribute is essentially only useful when constructing a new :class:`Structure` where all field values are
+        needed.
+
+        Can also be assigned to, to replace all current fields with the specified values, and without additional
+        parsing information. This is only useful when constructing a new :class:`ParsingContext` or updating it.
+
+        """
+        return types.MappingProxyType({k: v.value for k, v in self.fields.items()})
+
+    @field_values.setter
+    def field_values(self, value):
+        self.fields = {k: FieldParsingInformation(v) for k, v in value.items()} if value else {}
 
     @property
     def root(self):
@@ -35,16 +81,12 @@ class ParsingContext:
         fields.
         """
 
-        if self.field_values and name in self.field_values:
-            return self.field_values[name]
+        if self.fields and name in self.fields:
+            return self.fields[name].value
         elif self.structure and hasattr(self.structure, name):
             return getattr(self.structure, name)
         else:
             raise UnknownDependentFieldError("Dependent field %s is not loaded yet, so can't be used." % name)
-
-    def __getattr__(self, name):
-        """Allows you to do context.value instead of context['value']."""
-        return self.__getitem__(name)
 
     def read_stream(self, stream, size=-1, buffer=None):
         """Alias for ``stream.read(size)``, but raises an :exc:`MisalignedFieldError` when bits have still not been

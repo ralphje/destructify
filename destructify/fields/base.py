@@ -18,14 +18,14 @@ def _retrieve_property(context, var, special_case_str=True):
     """Retrieves a property:
 
     * If the property is callable, and has 0 parameters, it is called without arguments
-    * If the property is callable, and has >=1 parameters, it is called with argument context
+    * If the property is callable, and has >=1 parameters, it is called with argument context.f
     * If special_case_str=True and var is a str, context[var] is returned
     * Otherwise var is returned
     """
     if callable(var):
         if len(inspect.signature(var).parameters) == 0:
             return var()
-        return var(context)
+        return var(context.f)
     elif special_case_str and context is not None and isinstance(var, str):
         return context[var]
     else:
@@ -115,7 +115,7 @@ class Field:
         if not self.has_override:
             return value
         elif callable(self.override):
-            return self.override(context, value)
+            return self.override(context.f, value)
         else:
             return self.override
 
