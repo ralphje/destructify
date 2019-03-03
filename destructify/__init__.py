@@ -1,3 +1,4 @@
+from destructify.parsing import *
 from destructify.fields import *
 from destructify.structures import *
 

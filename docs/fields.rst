@@ -222,25 +222,25 @@ Parsing context
       These names still collide with field names you may want to specify, but the ``f``-object is guaranteed to not add
       any additional name collisions in minor releases.
 
-      .. attribute:: ParsingContext.f.parent
+      .. attribute:: ParsingContext.f._
 
          Returns the :attr:`ParsingContext.f` attribute of the :attr:`ParsingContext.parent` object, so you can write
          ``f.parent.parent.field``, which is equivalent to ``context.parent.parent['field']``.
 
-         If you need to access a field named ``parent``, you must use ``f['parent']``
+         If you need to access a field named ``_``, you must use ``f['_']``
 
-      .. attribute:: ParsingContext.f.root
+      .. attribute:: ParsingContext.f._root
 
          Returns the :attr:`ParsingContext.f` attribute of the :attr:`ParsingContext.root` object, so you can write
          ``f.root.field``, which is equivalent to ``context.root['field']``
 
-         If you need to access a field named ``root``, you must use ``f['root']``
+         If you need to access a field named ``_root``, you must use ``f['_root']``
 
-      .. attribute:: ParsingContext.f.context
+      .. attribute:: ParsingContext.f._context
 
          Returns the actual :class:`ParsingContext`. Used in cases where a :attr:`f`-object is only provided.
 
-         If you need to access a field named ``context``, you must use ``f['context']``
+         If you need to access a field named ``_context``, you must use ``f['_context']``
 
    .. attribute:: ParsingContext.parent
 

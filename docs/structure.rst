@@ -143,23 +143,47 @@ length? For instance, what if the length field includes its own length? This is 
 
     class DependingStructure(destructify.Structure):
         length = destructify.IntegerField(length=4, byte_order='big', signed=False,
-                                          override=lambda c, v: len(c['content']) + 4 if v is None else v)
-        content = destructify.BytesField(length=lambda c: c['length'] - 4)
+                                          override=lambda c, v: len(c.content) + 4 if v is None else v)
+        content = destructify.BytesField(length=lambda c: c.length - 4)
 
 As you can spot, we now explicitly state using lambda functions how to get the length when we are reading the field,
 and also how to set the length when we are writing the field.
 
 The :attr:`Field.override` we specify, receives the
-current :attr:`ParsingContext` and the current value. Using attribute access on the  :attr:`ParsingContext`, we get the
+current :attr:`ParsingContext.f` and the current value. Using attribute access on the  :attr:`ParsingContext.f`, we get the
 length of the ``content`` field. We have added in a check to not override the value of
 ``length`` when it is already set to something else, allowing us to explicitly write 'wrong' values if we need to.
 
-Similarly, the :attr:`BytesField.length` accepts a function taking a single argument: the :attr:`ParsingContext`. A
+Similarly, the :attr:`BytesField.length` accepts a function taking a single argument: the :attr:`ParsingContext.f`. A
 simple attribute access allows us to get the current value of the just-before parsed ``length`` field.
 
 Several fields allow you to specify advanced structures such as these, allowing you to dynamically modify how your
 structure is built. See :ref:`FieldSpec` for a full listing of all the fields and how you can specify calculated
 values.
+
+The S object
+------------
+
+.. class:: S
+
+There is one final thing we want to show you: using the special :class:`S` object to construct lambda functions. This
+object can be used similarly to a :attr:`ParsingContext.f` object, except that it can be used to construct a lambda
+automatically. This means that these are equivalent::
+
+    S.field + S.field2 * 3
+    lambda c: c.field + c.field2 * 3
+
+The :class:`S` object can be used in any place where a single-argument lambda is expected::
+
+    import destructify
+    from destructify import S
+
+    class DependingStructure(destructify.Structure):
+        ...  # same as above
+        content = destructify.BytesField(length=S.length - 4)
+
+Note that many operations are not possible on a :class:`S` object, because they require a lazy alternative. This holds
+for the ``len`` function; a lazy alternative is available in :func:`len_`.
 
 Streams
 =======
