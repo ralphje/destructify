@@ -4,11 +4,20 @@ import types
 from destructify.exceptions import StreamExhaustedError, UnknownDependentFieldError, MisalignedFieldError
 
 
-class FieldParsingInformation:
-    def __init__(self, value, start=None, length=None):
+class FieldContext:
+    def __init__(self, context, value, *, parsed=False, start=None, length=None, stream=None):
+        self.context = context
         self.value = value
+        self.parsed = parsed
         self.start = start
         self.length = length
+
+        if self.context.capture_raw and stream is not None and length is not None:
+            self._capture_raw(stream)
+
+    def _capture_raw(self, stream):
+        stream.seek(-self.length, io.SEEK_CUR)
+        self.raw = stream.read(self.length)
 
 
 class ParsingContext:
@@ -16,12 +25,13 @@ class ParsingContext:
     to contain context for the field that is being parsed.
     """
 
-    def __init__(self, *, structure=None, field_values=None, parent=None):
+    def __init__(self, *, structure=None, field_values=None, parent=None, capture_raw=False):
         self.structure = structure
-        self.field_values = field_values if field_values else {}
         self.parent = parent
+        self.capture_raw = capture_raw
         self.bits_remaining = None
 
+        self.field_values = field_values
         self.f = ParsingContext.F(self)
 
     class F:
@@ -66,7 +76,7 @@ class ParsingContext:
 
     @field_values.setter
     def field_values(self, value):
-        self.fields = {k: FieldParsingInformation(v) for k, v in value.items()} if value else {}
+        self.fields = {k: FieldContext(self, v) for k, v in value.items()} if value else {}
 
     @property
     def root(self):

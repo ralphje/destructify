@@ -1,7 +1,7 @@
 import inspect
 import io
 
-from destructify.fields.parsing import ParsingContext, FieldParsingInformation
+from destructify.fields.parsing import ParsingContext, FieldContext
 from destructify.structures.options import StructureOptions
 
 
@@ -109,7 +109,8 @@ class Structure(metaclass=StructureBase):
         total_consumed = 0
         for field in cls._meta.fields:
             result, consumed = field.from_stream(stream, context)
-            context.fields[field.name] = FieldParsingInformation(result, start=total_consumed, length=consumed)
+            context.fields[field.name] = FieldContext(context, result,
+                                                      parsed=True, start=total_consumed, length=consumed, stream=stream)
             total_consumed += consumed
 
         return cls(**context.field_values), total_consumed
@@ -137,7 +138,8 @@ class Structure(metaclass=StructureBase):
         for field in self._meta.fields:
             value = context.fields[field.name].value
             written = field.to_stream(stream, value, context)
-            context.fields[field.name] = FieldParsingInformation(value, start=total_written, length=written)
+            context.fields[field.name] = FieldContext(context, value,
+                                                      parsed=True, start=total_written, length=written, stream=stream)
             total_written += written
 
         total_written += context.finalize_stream(stream)
