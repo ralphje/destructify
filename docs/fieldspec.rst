@@ -58,6 +58,22 @@ and can be defined on every class:
    obtained by calling ``Field.get_overridden_value(value, context)``. Note, however, that you probably want to call
    :meth:`Field.get_final_value` instead.
 
+.. attribute:: Field.offset
+               Field.skip
+
+   The offset of the field absolutely in the stream (in the case of :attr:`offset`),
+   or the offset of the field relative to the previous field (in the case of :attr:`skip`). :attr:`offset` can be a
+   negative value to indicate an offset from the end of the stream.
+
+   You can set it to one of the following:
+
+   * A callable with zero arguments
+   * A callable taking a :attr:`ParsingContext.f` object
+   * A value
+
+   Fields are always processed in the order they are defined, so a field following a field that has one of these
+   attributes set, will continue from the current position.
+
 MagicField
 ==========
 .. autoclass:: MagicField

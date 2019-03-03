@@ -13,6 +13,7 @@ significantly.
 
 * Added :attr:`StructureOptions.encoding`
 * Added :attr:`BytesField.terminator_handler`
+* Added :attr:`Field.offset` and :attr:`Field.skip`
 * New field :class:`BytesField`, merging the features of :class:`FixedLengthField` and :class:`TerminatedField`. These
   fields will remain as subclasses.
 * New field: :class:`MagicField`
@@ -23,8 +24,11 @@ significantly.
   :meth:`BytesField.to_python` and :meth:`BytesField.from_python`, avoiding confusion with
   :meth:`Structure.from_bytes` and :meth:`Structure.to_bytes`
 * Removed all byte-order specific subclasses from :class:`StructField`.
-* Add :attr:`ParsingContext.parsed_fields` for information about the parsing structure.
-* :class:`Substream` is now a wrapper instead of a BufferedReader
+* Add option to :class:`ParsingContext` to capture the raw bytes, available in :attr:`ParsingContext.fields`
+* Add :attr:`ParsingContext.fields` for information about the parsing structure.
+* Added :attr:`ParsingContext.f` for raw attribute access.
+* Added :class:`S` for quick construction of lambdas
+* :class:`Substream` is now a wrapper instead of a full-fletched BufferedReader
 
 v0.1.0 (2019-02-17)
 -------------------

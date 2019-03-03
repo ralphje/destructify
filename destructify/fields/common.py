@@ -1,8 +1,8 @@
 import io
 
-from . import Field, StreamExhaustedError
+from . import Field
 from .. import Substream, ParsingContext
-from ..exceptions import DefinitionError, WriteError, WrongMagicError
+from ..exceptions import DefinitionError, WriteError, WrongMagicError, StreamExhaustedError
 from .base import _retrieve_property
 
 

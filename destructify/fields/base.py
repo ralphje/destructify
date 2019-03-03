@@ -1,8 +1,8 @@
 import inspect
+import io
 from functools import total_ordering
 
-from destructify.exceptions import StreamExhaustedError, UnknownDependentFieldError, ImpossibleToCalculateLengthError, \
-    MisalignedFieldError
+from destructify.exceptions import ImpossibleToCalculateLengthError, DefinitionError
 
 
 class _NOT_PROVIDED_META(type):
@@ -41,12 +41,21 @@ class Field:
 
     _ctype = None
 
-    def __init__(self, *, name=None, default=NOT_PROVIDED, override=NOT_PROVIDED):
+    def __init__(self, *, name=None, default=NOT_PROVIDED, override=NOT_PROVIDED, offset=None, skip=None):
         self.bound_structure = None
 
         self.name = name
         self.default = default
         self.override = override
+        self.offset = offset
+        self.skip = skip
+
+        if offset is not None and skip is not None:
+            raise DefinitionError("The field {} specifies both 'offset' and 'skip', which is impossible."
+                                  .format(self.full_name))
+        if skip is not None and skip < 0:
+            raise DefinitionError("The field {} specifies a negative skip, which is impossible."
+                                  .format(self.full_name))
 
         self.creation_counter = Field.creation_counter
         Field.creation_counter += 1
@@ -118,6 +127,30 @@ class Field:
             return self.override(context.f, value)
         else:
             return self.override
+
+    def _seek_stream_to_start(self, stream, context, estimated_position):
+        """Seeks the stream to the starting position of this field. Expects the previous field to end at the current
+        position of the field. Returns the current starting position, also if there is no seek done.
+
+        For non-tellable streams, estimated_position is returned.
+        """
+        if self.offset is not None:
+            offset = _retrieve_property(context, self.offset)
+            if offset is not None:
+                if offset < 0:
+                    return stream.seek(offset, io.SEEK_END)
+                else:
+                    return stream.seek(offset, io.SEEK_SET)
+
+        elif self.skip is not None:
+            skip = _retrieve_property(context, self.skip)
+            if skip is not None:
+                return stream.seek(skip, io.SEEK_CUR)
+
+        try:
+            return stream.tell()
+        except (OSError, AttributeError):
+            return estimated_position
 
     @property
     def ctype(self):

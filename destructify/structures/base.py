@@ -108,9 +108,10 @@ class Structure(metaclass=StructureBase):
 
         total_consumed = 0
         for field in cls._meta.fields:
+            offset = field._seek_stream_to_start(stream, context, total_consumed)
             result, consumed = field.from_stream(stream, context)
             context.fields[field.name] = FieldContext(context, result,
-                                                      parsed=True, start=total_consumed, length=consumed, stream=stream)
+                                                      parsed=True, start=offset, length=consumed, stream=stream)
             total_consumed += consumed
 
         return cls(**context.field_values), total_consumed
@@ -137,9 +138,10 @@ class Structure(metaclass=StructureBase):
         total_written = 0
         for field in self._meta.fields:
             value = context.fields[field.name].value
+            offset = field._seek_stream_to_start(stream, context, total_written)
             written = field.to_stream(stream, value, context)
             context.fields[field.name] = FieldContext(context, value,
-                                                      parsed=True, start=total_written, length=written, stream=stream)
+                                                      parsed=True, start=offset, length=written, stream=stream)
             total_written += written
 
         total_written += context.finalize_stream(stream)
