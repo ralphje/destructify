@@ -69,7 +69,7 @@ class ParsingContext:
         if buffer:
             result = bytearray()
             while size < 0 or len(result) < size:
-                b = stream.read(size)
+                b = stream.read(size - len(result))
                 if not b:
                     break
                 result += b
