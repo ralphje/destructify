@@ -7,6 +7,13 @@ from destructify.exceptions import DefinitionError, StreamExhaustedError, WriteE
 from tests import DestructifyTestCase
 
 
+class PeekableBytesIO(io.BytesIO):
+    def peek(self, size=-1):
+        result = self.read(size)
+        self.seek(-len(result), io.SEEK_CUR)
+        return result
+
+
 class MagicTestCase(DestructifyTestCase):
     def test_simple(self):
         self.assertFieldStreamEqual(b"hello", b"hello", MagicField(b"hello"))
@@ -146,17 +153,30 @@ class BytesFieldTestCase(DestructifyTestCase):
         self.assertFieldToStreamEqual(b"abcdef", b"abcdef", BytesField(terminator=b"\0", terminator_handler='until'))
 
     def test_terminator_handler_until_with_peek(self):
-        class PeekableBytesIO(io.BytesIO):
-            def peek(self, size=-1):
-                result = self.read(size)
-                self.seek(-len(result), io.SEEK_CUR)
-                return result
-
         pio = PeekableBytesIO(b"abcdef\0gh")
         field = BytesField(terminator=b"\0", terminator_handler='until')
         result = field.from_stream(pio, ParsingContext())
         self.assertEqual(b"abcdef", result[0])
         self.assertEqual(b"\0", pio.read(1))
+
+    def test_terminator_handler_until_multibyte_misaligned_field(self):
+        self.assertFieldFromStreamEqual(b"1231231\0\0", b"1231231",
+                                        BytesField(terminator=b"\0\0", step=3, terminator_handler='until'))
+
+    def test_terminator_handler_until_with_peek_multibyte_misaligned_field(self):
+        with self.subTest("step larger than terminator length"):
+            pio = PeekableBytesIO(b"1231231\0\0")
+            field = BytesField(terminator=b"\0\0", step=3, terminator_handler='until')
+            result = field.from_stream(pio, ParsingContext())
+            self.assertEqual(b"1231231", result[0])
+            self.assertEqual(b"\0\0", pio.read(2))
+
+        with self.subTest("step smaller than terminator length"):
+            pio = PeekableBytesIO(b"1231231\0\0")
+            field = BytesField(terminator=b"\0\0", step=1, terminator_handler='until')
+            result = field.from_stream(pio, ParsingContext())
+            self.assertEqual(b"1231231", result[0])
+            self.assertEqual(b"\0\0", pio.read(2))
 
     def test_terminator_handler_until_full(self):
         class Struct(Structure):
