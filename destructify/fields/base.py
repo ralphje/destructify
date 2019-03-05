@@ -128,30 +128,6 @@ class Field:
         else:
             return self.override
 
-    def _seek_stream_to_start(self, stream, context, estimated_position):
-        """Seeks the stream to the starting position of this field. Expects the previous field to end at the current
-        position of the field. Returns the current starting position, also if there is no seek done.
-
-        For non-tellable streams, estimated_position is returned.
-        """
-        if self.offset is not None:
-            offset = _retrieve_property(context, self.offset)
-            if offset is not None:
-                if offset < 0:
-                    return stream.seek(offset, io.SEEK_END)
-                else:
-                    return stream.seek(offset, io.SEEK_SET)
-
-        elif self.skip is not None:
-            skip = _retrieve_property(context, self.skip)
-            if skip is not None:
-                return stream.seek(skip, io.SEEK_CUR)
-
-        try:
-            return stream.tell()
-        except (OSError, AttributeError):
-            return estimated_position
-
     @property
     def ctype(self):
         """A friendly description of the field in the form of a C-style struct definition."""
@@ -169,6 +145,41 @@ class Field:
         """
 
         return self.get_overridden_value(value, context)
+
+    def seek_start(self, stream, context, position):
+        """This is called before the field is parsed/written. It should expect the stream to be aligned to the ending
+        of the previous field. It is intended to seek its starting position. This makes sense if the offset is set, for
+        instance. In the case this stream is not tellable and no seek is performed, *position* is returned unmodified.
+
+        :param io.BufferedIOBase stream: The IO stream to consume from.
+        :param ParsingContext context: The context used for the parsing.
+        :param int position: The current position in the stream according to the internal counter.
+        :return: The new position.
+        """
+        if self.offset is not None:
+            offset = _retrieve_property(context, self.offset)
+            if offset is not None:
+                if offset < 0:
+                    return stream.seek(offset, io.SEEK_END)
+                else:
+                    return stream.seek(offset, io.SEEK_SET)
+
+        elif self.skip is not None:
+            skip = _retrieve_property(context, self.skip)
+            if skip is not None:
+                return stream.seek(skip, io.SEEK_CUR)
+
+        elif self.bound_structure is not None and self.bound_structure._meta.alignment is not None:
+            # align to the bytes of the alignment of the options
+            alignment = self.bound_structure._meta.alignment
+            if position % alignment != 0:
+                return stream.seek(alignment - (position % alignment), io.SEEK_CUR)
+
+        # attempt to return the current position if available.
+        try:
+            return stream.tell()
+        except (OSError, AttributeError):
+            return position
 
     def from_stream(self, stream, context):
         """Given a stream of bytes object, consumes a given bytes object to Python representation. The given stream

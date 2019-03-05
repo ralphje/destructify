@@ -12,8 +12,9 @@ This release adds more field types and further improves on existing code. It als
 significantly.
 
 * Added :attr:`StructureOptions.encoding`
+* Added :attr:`StructureOptions.alignment`, :attr:`Field.offset` and :attr:`Field.skip`, implemented by
+  :class:`Field.seek_start`
 * Added :attr:`BytesField.terminator_handler`
-* Added :attr:`Field.offset` and :attr:`Field.skip`
 * New field :class:`BytesField`, merging the features of :class:`FixedLengthField` and :class:`TerminatedField`. These
   fields will remain as subclasses.
 * New field: :class:`MagicField`

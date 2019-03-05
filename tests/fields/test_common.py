@@ -162,6 +162,8 @@ class BytesFieldTestCase(DestructifyTestCase):
     def test_terminator_handler_until_multibyte_misaligned_field(self):
         self.assertFieldFromStreamEqual(b"1231231\0\0", b"1231231",
                                         BytesField(terminator=b"\0\0", step=3, terminator_handler='until'))
+        self.assertFieldFromStreamEqual(b"1231231\0\0", b"1231231",
+                                        BytesField(terminator=b"\0\0", step=1, terminator_handler='until'))
 
     def test_terminator_handler_until_with_peek_multibyte_misaligned_field(self):
         with self.subTest("step larger than terminator length"):

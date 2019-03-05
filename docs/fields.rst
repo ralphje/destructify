@@ -287,6 +287,8 @@ Base field
 
    .. automethod:: Field.get_final_value
 
+   .. automethod:: Field.seek_start
+
    .. automethod:: Field.from_stream
 
    .. automethod:: Field.to_stream

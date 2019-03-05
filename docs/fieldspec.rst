@@ -74,6 +74,8 @@ and can be defined on every class:
    Fields are always processed in the order they are defined, so a field following a field that has one of these
    attributes set, will continue from the current position.
 
+   When you set :attr:`offset` or :attr:`skip`, :attr:`StructureOptions.alignment` is ignored for this field.
+
 MagicField
 ==========
 .. autoclass:: MagicField

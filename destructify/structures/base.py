@@ -97,33 +97,50 @@ class Structure(metaclass=StructureBase):
         """Reads a stream and converts it to a :class:`Structure` instance. You can explicitly provide a
         :class:`ParsingContext`, otherwise one will be created automatically.
 
+        This will seek over the stream if one of the alignment options is set, e.g. :attr:`ParsingContext.alignment`
+        or :attr:`Field.offset`. The return value in this case is the difference between the start offset of the stream
+        and the offset of the highest read byte. In most cases, this will simply equal the amount of bytes consumed
+        from the stream.
+
         :param stream: A buffered bytes stream.
         :param ParsingContext context: A context to use while parsing the stream.
         :rtype: Structure, int
-        :return: A tuple of the constructed :class:`Structure` and the total amount of bytes read from the stream.
+        :return: A tuple of the constructed :class:`Structure` and the amount of bytes read (defined as the last
+            position of the read bytes).
         """
 
         if context is None:
             context = ParsingContext()
 
-        total_consumed = 0
+        # We keep track of our starting offset, the current offset and the max offset.
+        try:
+            start_offset = max_offset = offset = stream.tell()
+        except (OSError, AttributeError):
+            start_offset = max_offset = offset = 0
+
         for field in cls._meta.fields:
-            offset = field._seek_stream_to_start(stream, context, total_consumed)
+            offset = field.seek_start(stream, context, offset)
             result, consumed = field.from_stream(stream, context)
             context.fields[field.name] = FieldContext(context, result,
                                                       parsed=True, start=offset, length=consumed, stream=stream)
-            total_consumed += consumed
+            offset += consumed
+            max_offset = max(offset, max_offset)
 
-        return cls(**context.field_values), total_consumed
+        return cls(**context.field_values), max_offset - start_offset
 
     def to_stream(self, stream, context=None):
         """Writes the current :class:`Structure` to the provided stream. You can explicitly provide a
         :class:`ParsingContext`, otherwise one will be created automatically.
 
+        This will seek over the stream if one of the alignment options is set, e.g. :attr:`ParsingContext.alignment`
+        or :attr:`Field.offset`. The return value in this case is the difference between the start offset of the stream
+        and the offset of the highest written byte. In most cases, this will simply equal the amount of bytes written
+        to the stream.
+
         :param stream: A buffered bytes stream.
         :param ParsingContext context: A context to use while writing the stream.
         :rtype: int
-        :return: The number bytes read from the stream.
+        :return: The number bytes written to the stream (defined as the maximum position of the bytes that were written)
         """
         if context is None:
             context = ParsingContext(structure=self)
@@ -135,18 +152,25 @@ class Structure(metaclass=StructureBase):
 
         context.field_values = self.finalize(values)
 
-        total_written = 0
+        # We keep track of our starting offset, the current offset and the max offset.
+        try:
+            start_offset = max_offset = offset = stream.tell()
+        except (OSError, AttributeError):
+            start_offset = max_offset = offset = 0
+
         for field in self._meta.fields:
             value = context.fields[field.name].value
-            offset = field._seek_stream_to_start(stream, context, total_written)
+            offset = field.seek_start(stream, context, offset)
             written = field.to_stream(stream, value, context)
             context.fields[field.name] = FieldContext(context, value,
                                                       parsed=True, start=offset, length=written, stream=stream)
-            total_written += written
+            offset += written
+            max_offset = max(offset, max_offset)
 
-        total_written += context.finalize_stream(stream)
+        offset += context.finalize_stream(stream)
+        max_offset = max(offset, max_offset)
 
-        return total_written
+        return max_offset - start_offset
 
     @classmethod
     def from_bytes(cls, bytes):

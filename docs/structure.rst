@@ -270,6 +270,15 @@ The Meta class
 
       The default character encoding for fields in this structure. Defaults to ``utf-8``.
 
+   .. attribute:: alignment
+
+      Can be set to a number to align the start of all fields. For instance, if this is ``4``, the start of all fields
+      will be aligned to 4-byte multiples; meaning that, after a 2-byte field, a 2-byte gap will automatically be added.
+      This is useful for e.g. C-style structs, that are automatically aligned. See
+      `The Lost Art of Structure Packing <http://www.catb.org/esr/structure-packing/>`_ for more information about this.
+
+      This alignment does *not* apply when :attr:`Field.offset` or :attr:`Field.skip` is set.
+
 Python API
 ==========
 .. autoclass:: Structure
