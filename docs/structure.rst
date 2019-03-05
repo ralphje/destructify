@@ -161,29 +161,29 @@ Several fields allow you to specify advanced structures such as these, allowing 
 structure is built. See :ref:`FieldSpec` for a full listing of all the fields and how you can specify calculated
 values.
 
-The S object
-------------
+The ``this`` object
+-------------------
 
-.. class:: S
+.. class:: this
 
-There is one final thing we want to show you: using the special :class:`S` object to construct lambda functions. This
+There is one final thing we want to show you: using the special :class:`this` object to construct lambda functions. This
 object can be used similarly to a :attr:`ParsingContext.f` object, except that it can be used to construct a lambda
 automatically. This means that these are equivalent::
 
-    S.field + S.field2 * 3
-    lambda c: c.field + c.field2 * 3
+    this.field + this.field2 * 3
+    lambda this: this.field + this.field2 * 3
 
-The :class:`S` object can be used in any place where a single-argument lambda is expected::
+The :class:`this` object can be used in any place where a single-argument lambda is expected::
 
     import destructify
-    from destructify import S
+    from destructify import this
 
     class DependingStructure(destructify.Structure):
         ...  # same as above
-        content = destructify.BytesField(length=S.length - 4)
+        content = destructify.BytesField(length=this.length - 4)
 
-Note that many operations are not possible on a :class:`S` object, because they require a lazy alternative. This holds
-for the ``len`` function; a lazy alternative is available in :func:`len_`.
+Note that many operations are not possible on a :class:`this` object, because they require a lazy alternative. This
+holds for the ``len`` function; a lazy alternative is available in :func:`len_`.
 
 Streams
 =======

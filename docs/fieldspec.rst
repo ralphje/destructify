@@ -65,14 +65,15 @@ and can be defined on every class:
    or the offset of the field relative to the previous field (in the case of :attr:`skip`). :attr:`offset` can be a
    negative value to indicate an offset from the end of the stream.
 
-   You can set it to one of the following:
+   You can't set both at the same time. You can set each to one of the following:
 
    * A callable with zero arguments
    * A callable taking a :attr:`ParsingContext.f` object
-   * A value
+   * A string that represents the field name that contains the value
+   * A integer
 
    Fields are always processed in the order they are defined, so a field following a field that has one of these
-   attributes set, will continue from the current position.
+   attributes set, will continue from the then-current position.
 
    When you set :attr:`offset` or :attr:`skip`, :attr:`StructureOptions.alignment` is ignored for this field.
 

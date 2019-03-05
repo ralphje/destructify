@@ -215,7 +215,7 @@ class Function(Expression):
             return self.__function(self.__operand(operand) if callable(self.__operand) else self.__operand)
 
 
-S = Element('S')
+this = Element('this')
 len_ = Function(len)
 sum_ = Function(sum)
 min_ = Function(min)

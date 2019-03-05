@@ -28,7 +28,7 @@ significantly.
 * Add option to :class:`ParsingContext` to capture the raw bytes, available in :attr:`ParsingContext.fields`
 * Add :attr:`ParsingContext.fields` for information about the parsing structure.
 * Added :attr:`ParsingContext.f` for raw attribute access.
-* Added :class:`S` for quick construction of lambdas
+* Added :class:`this` for quick construction of lambdas
 * :class:`Substream` is now a wrapper instead of a full-fletched BufferedReader
 
 v0.1.0 (2019-02-17)

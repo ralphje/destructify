@@ -1,3 +1,3 @@
 from .context import *
 from .substream import *
-from .expression import S, len_
+from .expression import this, len_
