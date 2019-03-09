@@ -3,6 +3,7 @@ import io
 from . import Field
 from .. import Substream, ParsingContext
 from ..exceptions import DefinitionError, WriteError, WrongMagicError, StreamExhaustedError
+from ..parsing.bitstream import BitStream
 from .base import _retrieve_property
 
 
@@ -84,7 +85,7 @@ class BytesField(Field):
 
     def _from_stream_fixed_length(self, stream, context):
         length = self.get_length(context)
-        read = context.read_stream(stream, length)
+        read = stream.read(length)
         if len(read) < length and self.strict:
             raise StreamExhaustedError("Could not parse field %s, trying to read %s bytes, but only %s read." %
                                        (self.full_name, length, len(read)))
@@ -128,7 +129,7 @@ class BytesField(Field):
 
         if length < 0:
             # For negative lengths, we just write to the stream
-            return context.write_stream(stream, val)
+            return stream.write(val)
 
         if len(val) < length:
             if self.padding is not None:
@@ -150,7 +151,7 @@ class BytesField(Field):
 
             val = val[:length]
 
-        return context.write_stream(stream, val)
+        return stream.write(val)
 
     def _from_stream_terminated(self, stream, context):
         read = b""
@@ -161,10 +162,10 @@ class BytesField(Field):
                 if (stream.peek(self.step)).endswith(self.terminator):
                     if len(self.terminator) < self.step:
                         # we need to consume until the terminator.
-                        read += context.read_stream(stream, self.step - len(self.terminator))
+                        read += stream.read(self.step - len(self.terminator))
                     return self.to_python(read), len(read)
 
-            c = context.read_stream(stream, self.step)
+            c = stream.read(self.step)
             read += c
             if len(c) != self.step:
                 if self.strict:
@@ -187,13 +188,13 @@ class BytesField(Field):
     def _to_stream_terminated(self, stream, value, context):
         val = self.from_python(value)
         if self.terminator_handler == 'consume':
-            return context.write_stream(stream, val + self.terminator)
+            return stream.write(val + self.terminator)
         elif self.terminator_handler == 'include':
             if not val.endswith(self.terminator) and self.strict:
                 raise WriteError("The field {} does not include its terminator.".format(self.full_name))
-            return context.write_stream(stream, val)
+            return stream.write(val)
         elif self.terminator_handler == 'until':
-            return context.write_stream(stream, val)
+            return stream.write(val)
 
 
 class FixedLengthField(BytesField):
@@ -233,14 +234,17 @@ class BitField(FixedLengthField):
             if not related_field.has_override:
                 related_field.override = lambda s, v: s[self.name].bit_length() if v is None else v
 
-    def from_stream(self, stream, context=None):
-        result = context.read_stream_bits(stream, self.get_length(context))
+    def from_stream(self, stream: BitStream, context):
+        result = stream.read_bits(self.get_length(context))
         if self.realign:
-            context.bits_remaining = None
+            stream.discard_bits()
         return result
 
-    def to_stream(self, stream, value, context=None):
-        return context.write_stream_bits(stream, value, self.get_length(context), force_write=self.realign)
+    def to_stream(self, stream: BitStream, value, context):
+        result = stream.write_bits(value, self.get_length(context))
+        if self.realign:
+            result += stream.finalize()
+        return result
 
 
 class StringField(BytesField):
@@ -278,13 +282,13 @@ class IntegerField(FixedLengthField):
                               byteorder='big' if not self.byte_order and len(val) == 1 else self.byte_order,
                               signed=self.signed)
 
-    def to_stream(self, stream, value, context=None):
+    def to_stream(self, stream, value, context):
         # We can't use from_python here as we need the field's length.
         length = self.get_length(context)
         val = self.from_python(value.to_bytes(length,
                                               byteorder='big' if not self.byte_order and length == 1 else self.byte_order,
                                               signed=self.signed))
-        return context.write_stream(stream, val)
+        return stream.write(val)
 
     def contribute_to_class(self, cls, name):
         super().contribute_to_class(cls, name)
@@ -303,7 +307,7 @@ class VariableLengthQuantityField(Field):
         result = 0
         count = 0
         while True:
-            c = context.read_stream(stream, 1)
+            c = stream.read(1)
             count += 1
             if len(c) != 1:
                 raise StreamExhaustedError("Could not read 1 byte while parsing field {}".format(self.full_name))
@@ -324,7 +328,7 @@ class VariableLengthQuantityField(Field):
         while value > 0:
             result.insert(0, value & 0x7f | 0x80)
             value >>= 7
-        return context.write_stream(stream, bytes(result))
+        return stream.write(bytes(result))
 
 
 class StructureField(Field):
@@ -366,7 +370,7 @@ class StructureField(Field):
             consumed = length
         return res, consumed
 
-    def to_stream(self, stream, value, context=None):
+    def to_stream(self, stream, value, context):
         if value is None:
             value = self.structure()
         # TODO: respect length

@@ -129,7 +129,7 @@ it as follows::
             result = count = 0
             while True:
                 count += 1
-                c = context.read_stream(stream, 1)[0]  # TODO: verify that 1 byte is read
+                c = stream.read(1)[0]  # TODO: verify that 1 byte is read
                 result <<= 7
                 result += c & 0x7f
                 if not c & 0x80:
@@ -142,7 +142,7 @@ it as follows::
             while value > 0:
                 result.insert(0, value & 0x7f | 0x80)
                 value >>= 7
-            return context.write_stream(stream, bytes(result))
+            return stream.write(bytes(result))
 
 As you can see, this is not that hard! We have omitted some additional checks from this example, such as that we
 have actually read 1 byte (and should raise :exc:`StreamExhaustedError` if it isn't) and verify that the value is
@@ -259,16 +259,6 @@ Parsing context
 
    When you are implementing a field yourself, you get a :class:`ParsingContext` when reading from and writing to a
    stream, meaning you will probably use one the following methods:
-
-   .. automethod:: ParsingContext.read_stream
-
-   .. automethod:: ParsingContext.write_stream
-
-   .. automethod:: ParsingContext.finalize_stream
-
-   .. automethod:: ParsingContext.read_stream_bits
-
-   .. automethod:: ParsingContext.write_stream_bits
 
 Base field
 ==========

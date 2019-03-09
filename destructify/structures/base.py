@@ -1,8 +1,9 @@
 import inspect
 import io
 
-from destructify.parsing import ParsingContext, FieldContext
-from destructify.structures.options import StructureOptions
+from ..parsing import ParsingContext, FieldContext
+from ..parsing.bitstream import BitStream
+from .options import StructureOptions
 
 
 class StructureBase(type):
@@ -125,6 +126,9 @@ class Structure(metaclass=StructureBase):
         if context is None:
             context = ParsingContext()
 
+        # wrap the stream in a BitStream to enable bit-based methods
+        stream = BitStream(stream)
+
         # We keep track of our starting offset, the current offset and the max offset.
         try:
             start_offset = max_offset = offset = stream.tell()
@@ -165,6 +169,9 @@ class Structure(metaclass=StructureBase):
         if context is None:
             context = ParsingContext(structure=self)
 
+        # wrap the stream in a BitStream to enable bit-based methods
+        stream = BitStream(stream)
+
         # done in two loops to allow for finalizing
         values = {}
         for field in self._meta.fields:
@@ -187,7 +194,7 @@ class Structure(metaclass=StructureBase):
             offset += written
             max_offset = max(offset, max_offset)
 
-        offset += context.finalize_stream(stream)
+        offset += stream.finalize()
         max_offset = max(offset, max_offset)
 
         return max_offset - start_offset
