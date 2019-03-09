@@ -41,11 +41,13 @@ class Field:
 
     _ctype = None
 
-    def __init__(self, *, name=None, default=NOT_PROVIDED, override=NOT_PROVIDED, offset=None, skip=None):
+    def __init__(self, *, name=None, default=NOT_PROVIDED, convert=NOT_PROVIDED, override=NOT_PROVIDED,
+                 offset=None, skip=None):
         self.bound_structure = None
 
         self.name = name
         self.default = default
+        self.convert = convert
         self.override = override
         self.offset = offset
         self.skip = skip
@@ -127,6 +129,18 @@ class Field:
         return _retrieve_property(context, self.default, special_case_str=False)
 
     @property
+    def has_convert(self):
+        return self.convert is not NOT_PROVIDED
+
+    def get_converted_value(self, value, context):
+        if not self.has_convert:
+            return value
+        elif callable(self.convert):
+            return self.convert(context.f, value)
+        else:
+            return self.convert
+
+    @property
     def has_override(self):
         return self.override is not NOT_PROVIDED
 
@@ -144,6 +158,17 @@ class Field:
 
         ctype = self._ctype or self.__class__.__name__
         return "{} {}".format(ctype, self.name)
+
+    def get_initial_value(self, value, context):
+        """Returns the initial value given a context. This is used by :meth:`Structure.from_stream` to retrieve the
+        value that is read from the stream. It is called after all modifications to the value have been made by
+        the :class:`Field`.
+
+        :param value: The value to retrieve the final value for.
+        :param ParsingContext context: The context of this field.
+        """
+
+        return self.get_converted_value(value, context)
 
     def get_final_value(self, value, context):
         """Returns the final value given a context. This is used by :meth:`Structure.to_stream` to retrieve the

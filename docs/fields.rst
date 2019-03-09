@@ -285,6 +285,8 @@ Base field
 
    .. automethod:: Field.initialize
 
+   .. automethod:: Field.get_initial_value
+
    .. automethod:: Field.get_final_value
 
    .. automethod:: Field.seek_start

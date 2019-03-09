@@ -289,11 +289,13 @@ Python API
 
    .. automethod:: Structure.from_bytes
 
-   .. automethod:: Structure.finalize
+   .. automethod:: Structure.initialize
 
    .. automethod:: Structure.to_stream
 
    .. automethod:: Structure.to_bytes
+
+   .. automethod:: Structure.finalize
 
    .. automethod:: Structure.__bytes__
 

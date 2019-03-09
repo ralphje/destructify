@@ -1,4 +1,5 @@
 import io
+from unittest import mock
 
 from destructify import ParsingContext, Structure, FixedLengthField, StringField
 from tests import DestructifyTestCase
@@ -22,6 +23,24 @@ class StructureParsingTest(DestructifyTestCase):
         TestStructure.from_stream(io.BytesIO(b"abcdef"), context)
 
         self.assertEqual(False, hasattr(context.fields['field1'], 'raw'))
+
+
+class InitializeFinalizeTest(DestructifyTestCase):
+    def test_initializer_called(self):
+        class TestStructure(Structure):
+            field1 = FixedLengthField(length=3)
+
+        with mock.patch.object(TestStructure, 'initialize', side_effect=lambda x: x) as mock_method:
+            TestStructure.from_bytes(b"123")
+        mock_method.assert_called_once_with({"field1": b"123"})
+
+    def test_finalizer_called(self):
+        class TestStructure(Structure):
+            field1 = FixedLengthField(length=3)
+
+        with mock.patch.object(TestStructure, 'finalize', side_effect=lambda x: x) as mock_method:
+            TestStructure(field1=b'asd').to_bytes()
+        mock_method.assert_called_once_with({"field1": b"asd"})
 
 
 class OffsetTest(DestructifyTestCase):

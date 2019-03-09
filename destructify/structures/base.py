@@ -83,6 +83,19 @@ class Structure(metaclass=StructureBase):
         """Same as :meth:`to_bytes`, allowing you to use ``bytes(structure)``"""
         return self.to_bytes()
 
+    @classmethod
+    def initialize(cls, values):
+        """Hook for hooking into the object just before it will be converted to a structure. This can be used to
+        modify some values of the structure just before it is being created.
+
+        This method complements :meth:`finalize`, but will probably see less use. You can also override :meth:`__init__`
+        to accomplish the same.
+
+        :param dict values: A dictionary of all values that have been read from the stream.
+        :return: The same dictionary, including modified values.
+        """
+        return values
+
     def finalize(self, values):
         """Hook for hooking into the object just before it will be converted to binary data. This can be used to
         modify some values of the structure just before it is being written, e.g. for checksums.
@@ -126,7 +139,14 @@ class Structure(metaclass=StructureBase):
             offset += consumed
             max_offset = max(offset, max_offset)
 
-        return cls(**context.field_values), max_offset - start_offset
+        # Load the initial values
+        values = {}
+        for field in cls._meta.fields:
+            values[field.name] = field.get_initial_value(context.fields[field.name].value, context)
+
+        values = cls.initialize(values)
+
+        return cls(**values), max_offset - start_offset
 
     def to_stream(self, stream, context=None):
         """Writes the current :class:`Structure` to the provided stream. You can explicitly provide a
