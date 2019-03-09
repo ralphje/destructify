@@ -90,7 +90,7 @@ def _factory(name, bases=(SingleByteStructField, ), **kwargs):
 
 CharField = _factory("CharField", format="c", _ctype="char")
 ByteField = _factory("ByteField", format="b", _ctype="signed char")
-UnsignedByteField = _factory("UnignedByteField", format="unsigned char", _ctype="uint8_t")
+UnsignedByteField = _factory("UnignedByteField", format="B", _ctype="unsigned char")
 BoolField = _factory("BoolField", format="?", _ctype="_Bool")
 ShortField = _factory("ShortField", format="h", _ctype="short")
 UnsignedShortField = _factory("UnsignedShortField", format="H", _ctype="unsigned short")
