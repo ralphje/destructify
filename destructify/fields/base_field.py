@@ -32,6 +32,8 @@ class ArrayField(BaseFieldMixin, Field):
             raise DefinitionError("%s must specify a count or a length" % self.full_name)
         elif count is not None and length is not None:
             raise DefinitionError("%s cannot specify both a count and length" % self.full_name)
+        elif count is not None and count < 0:
+            raise DefinitionError("%s cannot specify a negative count" % self.full_name)
 
         super().__init__(base_field, *args, **kwargs)
 
