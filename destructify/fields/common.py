@@ -30,7 +30,7 @@ class BytesField(Field):
                                   .format(self.full_name))
 
     def __len__(self):
-        if isinstance(self.length, int):
+        if isinstance(self.length, int) and self.length >= 0:
             return self.length
         else:
             return super().__len__()
@@ -54,6 +54,10 @@ class BytesField(Field):
 
     def get_length(self, context):
         return _retrieve_property(context, self.length)
+
+    def seek_end(self, stream, context, offset):
+        if self.length is not None:
+            return stream.seek(self.get_length(context), io.SEEK_CUR)
 
     def to_python(self, value):
         """A hook that is called by :meth:`from_stream` to convert a given bytes object to a Python value.
@@ -246,21 +250,24 @@ class BitField(FixedLengthField):
             result += stream.finalize()
         return result
 
-    def seek_start(self, stream, context, position):
+    def seek_start(self, stream, context, offset):
         if self.offset is not None or self.skip is not None:
             # allow offset and skip to work as normal
-            return super().seek_start(stream, context, position)
+            return super().seek_start(stream, context, offset)
         elif self.bound_structure is not None and self.bound_structure._meta.alignment is not None:
             # check if we allow the alignment to apply to this field: this is the case if the previous field is not
             # of BitField
             prev_field = self.bound_structure._meta.get_previous_field(self)
             if not isinstance(prev_field, BitField) or prev_field.realign:
-                return super().seek_start(stream, context, position)
+                return super().seek_start(stream, context, offset)
 
         try:
             return stream.tell()
         except (OSError, AttributeError):
-            return position
+            return offset
+
+    def seek_end(self, stream, context, offset):
+        return None
 
 
 class StringField(BytesField):
@@ -358,7 +365,7 @@ class StructureField(Field):
             self.default = lambda: self.structure()
 
     def __len__(self):
-        if isinstance(self.length, int):
+        if isinstance(self.length, int) and self.length >= 0:
             return self.length
         else:
             return len(self.structure)
@@ -370,6 +377,10 @@ class StructureField(Field):
 
     def get_length(self, context):
         return _retrieve_property(context, self.length)
+
+    def seek_end(self, stream, context, offset):
+        if self.length is not None:
+            return stream.seek(self.get_length(context), io.SEEK_CUR)
 
     def from_stream(self, stream, context):
         length = None

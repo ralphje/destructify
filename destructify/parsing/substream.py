@@ -102,6 +102,7 @@ class Substream:
             self.raw.seek(self.start + self._position)
 
     def _cap_amount_of_bytes(self, size):
+        size = size.__index__()
         if self.length is None:
             # There is no upper bound, we can read anything
             return size

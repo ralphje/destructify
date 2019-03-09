@@ -29,6 +29,7 @@ setup(
     description='A Pythonic way to define, parse and modify binary structures',
     long_description=long_description,
     keywords=['struct', 'bytes'],
+    install_requires=['lazy-object-proxy'],
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',

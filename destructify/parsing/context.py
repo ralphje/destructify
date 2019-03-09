@@ -5,15 +5,38 @@ from destructify.exceptions import StreamExhaustedError, UnknownDependentFieldEr
 
 
 class FieldContext:
-    def __init__(self, context, value, *, parsed=False, start=None, length=None, stream=None):
+    def __init__(self, context, value=None, *, parsed=False, offset=None, length=None, stream=None,
+                 field=None, lazy=False):
         self.context = context
-        self.value = value
+        self._value = value
         self.parsed = parsed
-        self.start = start
+        self.offset = offset
         self.length = length
+        self.stream = stream
+        self.field = field
+        self.lazy = lazy
 
-        if self.context.capture_raw and stream is not None and length is not None:
+        if self.context.capture_raw and stream is not None and length is not None and not lazy:
             self._capture_raw(stream)
+
+    def _lazy_get(self):
+        current_offset = self.stream.tell()
+        self.stream.seek(self.offset)
+        try:
+            result = self.field.from_stream(self.stream, self.context)
+            self._value = result[0]
+            self.length = result[1]
+            self.lazy = False
+            return result[0]
+        finally:
+            self.stream.seek(current_offset)
+
+    @property
+    def value(self):
+        if self.lazy:
+            import lazy_object_proxy
+            return lazy_object_proxy.Proxy(self._lazy_get)
+        return self._value
 
     def _capture_raw(self, stream):
         stream.seek(-self.length, io.SEEK_CUR)

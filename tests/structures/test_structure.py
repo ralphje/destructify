@@ -1,7 +1,10 @@
 import io
 from unittest import mock
 
-from destructify import ParsingContext, Structure, FixedLengthField, StringField
+import lazy_object_proxy
+
+from destructify import ParsingContext, Structure, FixedLengthField, StringField, TerminatedField, IntegerField, \
+    Substream
 from tests import DestructifyTestCase
 
 
@@ -41,6 +44,78 @@ class InitializeFinalizeTest(DestructifyTestCase):
         with mock.patch.object(TestStructure, 'finalize', side_effect=lambda x: x) as mock_method:
             TestStructure(field1=b'asd').to_bytes()
         mock_method.assert_called_once_with({"field1": b"asd"})
+
+
+class LazyTest(DestructifyTestCase):
+    def test_lazy_field(self):
+        class TestStructure(Structure):
+            field1 = FixedLengthField(length=3, lazy=True)
+
+        t = TestStructure.from_bytes(b"123")
+        self.assertIsInstance(t.field1, lazy_object_proxy.Proxy)
+        self.assertEqual(b"123", bytes(t.field1))
+
+    def test_lazy_field_that_cannot_be_lazy(self):
+        class TestStructure(Structure):
+            field1 = TerminatedField(b'\0', lazy=True)
+            field2 = FixedLengthField(length=3)
+
+        t = TestStructure.from_bytes(b"123\x00123")
+        self.assertNotIsInstance(t.field1, lazy_object_proxy.Proxy)
+        self.assertEqual(b"123", bytes(t.field1))
+
+    def test_lazy_field_at_the_end(self):
+        class TestStructure(Structure):
+            field1 = TerminatedField(b'\0', lazy=True)
+            field2 = FixedLengthField(length=3, lazy=True)
+            field3 = TerminatedField(b'\0', lazy=True)
+
+        t = TestStructure.from_bytes(b"123\x00123123\0")
+        self.assertNotIsInstance(t.field1, lazy_object_proxy.Proxy)
+        self.assertIsInstance(t.field2, lazy_object_proxy.Proxy)
+        self.assertIsInstance(t.field3, lazy_object_proxy.Proxy)
+
+        self.assertEqual(b"123", bytes(t.field1))
+        self.assertEqual(b"123", bytes(t.field2))
+        self.assertEqual(b"123", bytes(t.field3))
+
+    def test_write_lazy(self):
+        class TestStructure(Structure):
+            field1 = FixedLengthField(length=3, lazy=True)
+
+        t = TestStructure.from_bytes(b"123\x00123123\0")
+        self.assertIsInstance(t.field1, lazy_object_proxy.Proxy)
+
+        self.assertEqual(b"123", t.to_bytes())
+
+    def test_depend_on_lazy(self):
+        class TestStructure(Structure):
+            field1 = IntegerField(length=1, lazy=True)
+            field2 = FixedLengthField(length='field1', lazy=True)
+            field3 = FixedLengthField(length=1)
+
+        t = TestStructure.from_bytes(b"\x031231")
+        self.assertNotIsInstance(t.field1, lazy_object_proxy.Proxy)  # should be resolved now
+        self.assertIsInstance(t.field2, lazy_object_proxy.Proxy)
+
+    def test_depend_on_lazy_later_defined_field(self):
+        class TestStructure(Structure):
+            field2 = FixedLengthField(length='length', lazy=True)
+            field3 = FixedLengthField(length=1)
+            length = IntegerField(offset=4, length=1, lazy=True)
+
+        t = TestStructure.from_bytes(b"1231\x03")
+        self.assertIsInstance(t.field2, lazy_object_proxy.Proxy)
+        self.assertNotIsInstance(t.length, lazy_object_proxy.Proxy)  # should be resolved now
+
+    def test_offset_lazy_needs_no_resolving(self):
+        class TestStructure(Structure):
+            field1 = FixedLengthField(length=1, lazy=True)
+            field2 = IntegerField(offset=1, length=1, lazy=True)
+
+        t = TestStructure.from_bytes(b"12")
+        self.assertIsInstance(t.field1, lazy_object_proxy.Proxy)
+        self.assertIsInstance(t.field2, lazy_object_proxy.Proxy)
 
 
 class OffsetTest(DestructifyTestCase):

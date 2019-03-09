@@ -14,6 +14,8 @@ significantly.
 * Added :attr:`StructureOptions.encoding`
 * Added :attr:`StructureOptions.alignment`, :attr:`Field.offset` and :attr:`Field.skip`, implemented by
   :class:`Field.seek_start`
+* Added :attr:`Field.lazy`
+* Added :attr:`Field.convert` and :meth:`Structure.initialize`
 * Added :attr:`BytesField.terminator_handler`
 * New field :class:`BytesField`, merging the features of :class:`FixedLengthField` and :class:`TerminatedField`. These
   fields will remain as subclasses.

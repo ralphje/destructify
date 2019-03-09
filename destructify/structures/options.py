@@ -47,9 +47,18 @@ class StructureOptions:
         field. Raises :exc:`ValueError` if the field is not found.
         """
         i = self.fields.index(field)
-        if i == 0:
+        if i <= 0:
             return None
         return self.fields[i - 1]
+
+    def get_next_field(self, field):
+        """Returns the field following the field provided by *field*. Returns :const:`None` if the field is the last
+        field. Raises :exc:`ValueError` if the field is not found.
+        """
+        try:
+            return self.fields[self.fields.index(field) + 1]
+        except IndexError:
+            return None
 
     def get_field_by_name(self, name):
         for field in self.fields:

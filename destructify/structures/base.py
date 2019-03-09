@@ -135,13 +135,55 @@ class Structure(metaclass=StructureBase):
         except (OSError, AttributeError):
             start_offset = max_offset = offset = 0
 
+        # Resolve lazy fields that have absolute offsets first
+        # This allows referencing fields that are defined later, and absolute offset fields can simply be referenced
         for field in cls._meta.fields:
-            offset = field.seek_start(stream, context, offset)
-            result, consumed = field.from_stream(stream, context)
-            context.fields[field.name] = FieldContext(context, result,
-                                                      parsed=True, start=offset, length=consumed, stream=stream)
-            offset += consumed
-            max_offset = max(offset, max_offset)
+            if field.lazy and field.offset is not None and isinstance(field.offset, int):
+                context.fields[field.name] = FieldContext(context,
+                                                          parsed=True, offset=field.offset, length=None,
+                                                          stream=stream, field=field, lazy=True)
+
+        # Now do all the fields, this includes all already resolved fields.
+        for field in cls._meta.fields:
+            offset = field.seek_start(stream, context, offset - start_offset)
+
+            # check if this field has already been resolved
+            # this is possible if it was a lazy field, but also required by another field
+            if field.name in context.fields and not context.fields[field.name].lazy:
+                stream.seek(context.fields[field.name].length, io.SEEK_CUR)
+                offset += context.fields[field.name].length
+                max_offset = max(offset, max_offset)
+                continue
+
+            # we check whether we need a lazy length by checking whether we have a next field that has no
+            # absolute offset
+            need_lazy_offset, lazy_offset = False, None
+            if field.lazy:
+                next_field = cls._meta.get_next_field(field)
+                need_lazy_offset = next_field is not None and next_field.offset is None
+
+                # obtain the lazy length if we need it
+                if need_lazy_offset:
+                    lazy_offset = field.seek_end(stream, context, offset - start_offset)
+
+            # if we are not a lazy field or we haven't found a lazy length while we need it, parse the field as needed
+            if not field.lazy or (lazy_offset is None and need_lazy_offset):
+                result, consumed = field.from_stream(stream, context)
+                context.fields[field.name] = FieldContext(context, result,
+                                                          parsed=True, offset=offset, length=consumed,
+                                                          stream=stream, field=field)
+                offset += consumed
+                max_offset = max(offset, max_offset)
+            else:
+                # store the lazy result, but only if we have not done this in a previous loop before.
+                # otherwise we need to update the length attribute only
+                if field.name in context.fields:
+                    context.fields[field.name].length = None if lazy_offset is None else lazy_offset - offset
+                else:
+                    context.fields[field.name] = FieldContext(context,
+                                                              parsed=True, offset=offset,
+                                                              length=None if lazy_offset is None else lazy_offset - offset,
+                                                              stream=stream, field=field, lazy=True)
 
         # Load the initial values
         values = {}
@@ -175,7 +217,11 @@ class Structure(metaclass=StructureBase):
         # done in two loops to allow for finalizing
         values = {}
         for field in self._meta.fields:
-            values[field.name] = field.get_final_value(getattr(self, field.name), context)
+            # Resolve __wrapped__ objects
+            v = getattr(self, field.name)
+            if hasattr(v, '__wrapped__'):
+                v = v.__wrapped__
+            values[field.name] = field.get_final_value(v, context)
 
         context.field_values = self.finalize(values)
 
@@ -187,10 +233,11 @@ class Structure(metaclass=StructureBase):
 
         for field in self._meta.fields:
             value = context.fields[field.name].value
-            offset = field.seek_start(stream, context, offset)
+            offset = field.seek_start(stream, context, offset - start_offset)
             written = field.to_stream(stream, value, context)
             context.fields[field.name] = FieldContext(context, value,
-                                                      parsed=True, start=offset, length=written, stream=stream)
+                                                      parsed=True, offset=offset, length=written, stream=stream,
+                                                      field=field)
             offset += written
             max_offset = max(offset, max_offset)
 

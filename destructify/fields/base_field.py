@@ -1,3 +1,5 @@
+import io
+
 from . import Field, Substream, FixedLengthField
 from ..exceptions import DefinitionError, StreamExhaustedError, ParseError, WriteError, WrongMagicError
 from .base import _retrieve_property
@@ -80,6 +82,10 @@ class ArrayField(BaseFieldMixin, Field):
 
     def get_length(self, context):
         return _retrieve_property(context, self.length)
+
+    def seek_end(self, stream, context, offset):
+        if self.length is not None:
+            return stream.seek(self.get_length(context), io.SEEK_CUR)
 
     @property
     def ctype(self):

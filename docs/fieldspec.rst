@@ -91,12 +91,35 @@ and can be defined on every class:
    * A callable with zero arguments
    * A callable taking a :attr:`ParsingContext.f` object
    * A string that represents the field name that contains the value
-   * A integer
+   * An integer
 
    Fields are always processed in the order they are defined, so a field following a field that has one of these
    attributes set, will continue from the then-current position.
 
    When you set :attr:`offset` or :attr:`skip`, :attr:`StructureOptions.alignment` is ignored for this field.
+
+.. attribute:: Field.lazy
+
+   When a :class:`Field` is lazy, it is not actually parsed from the stream during parsing, but only when the value
+   is evaluated. A :class:`Proxy` object from the module
+   `lazy-object-proxy <https://pypi.org/project/lazy-object-proxy/>`_ is returned instead: you can use
+   this value wherever you would use a normal value, but be aware that it *may* be a :class:`Proxy` object. Such an
+   object is not created in some cases:
+
+   * The :attr:`lazy` attribute has no effect when a value can not be retrieved lazily, i.e. :meth:`Field.seek_end`
+     returns :const:`None`, and the next field defines no absolute :attr:`offset`. In this case, the field must still be
+     parsed to retrieve its full length.
+
+   * When :attr:`lazy` fields are referenced and subsequently parsed during parsing, the :class:`Structure` will be
+     built with the actual value rather than the :class:`Proxy` object.
+
+   Additionally, :attr:`lazy` fields that have an absolute :attr:`offset` set (to an integer value), can be referenced
+   during parsing, even if they are defined later.
+
+   The :class:`Proxy` object can not be resolved when the stream is closed, and :attr:`lazy` fields require that the
+   stream is seekable.
+
+   This attribute has no effect when writing to a stream; a lazy value will be resolved by :meth:`Structure.to_stream`.
 
 BytesField
 ==========

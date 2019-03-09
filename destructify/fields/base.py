@@ -42,7 +42,7 @@ class Field:
     _ctype = None
 
     def __init__(self, *, name=None, default=NOT_PROVIDED, convert=NOT_PROVIDED, override=NOT_PROVIDED,
-                 offset=None, skip=None):
+                 offset=None, skip=None, lazy=False):
         self.bound_structure = None
 
         self.name = name
@@ -51,6 +51,7 @@ class Field:
         self.override = override
         self.offset = offset
         self.skip = skip
+        self.lazy = lazy
 
         if offset is not None and skip is not None:
             raise DefinitionError("The field {} specifies both 'offset' and 'skip', which is impossible."
@@ -181,15 +182,17 @@ class Field:
 
         return self.get_overridden_value(value, context)
 
-    def seek_start(self, stream, context, position):
+    def seek_start(self, stream, context, offset):
         """This is called before the field is parsed/written. It should expect the stream to be aligned to the ending
         of the previous field. It is intended to seek its starting position. This makes sense if the offset is set, for
-        instance. In the case this stream is not tellable and no seek is performed, *position* is returned unmodified.
+        instance. In the case this stream is not tellable and no seek is performed, *offset* is returned unmodified.
+
+        Note that the *relative* offset is passed in, but the *absolute* offset is expected as a result.
 
         :param io.BufferedIOBase stream: The IO stream to consume from.
         :param ParsingContext context: The context used for the parsing.
-        :param int position: The current position in the stream according to the internal counter.
-        :return: The new position.
+        :param int offset: The current relative offset in the stream
+        :return: The new absolute offset in the stream
         """
         if self.offset is not None:
             offset = _retrieve_property(context, self.offset)
@@ -207,14 +210,35 @@ class Field:
         elif self.bound_structure is not None and self.bound_structure._meta.alignment is not None:
             # align to the bytes of the alignment of the options
             alignment = self.bound_structure._meta.alignment
-            if position % alignment != 0:
-                return stream.seek(alignment - (position % alignment), io.SEEK_CUR)
+            if offset % alignment != 0:
+                return stream.seek(alignment - (offset % alignment), io.SEEK_CUR)
 
         # attempt to return the current position if available.
         try:
             return stream.tell()
         except (OSError, AttributeError):
-            return position
+            return offset
+
+    def seek_end(self, stream, context, offset):
+        """This is called when the field is lazy and we need to find the end of the field. This is *not* called
+        when the field is actually read, as :meth:`from_stream` is expected to align to the end of the field.
+
+        This method should be as efficient as possible with retrieving the length. For instance, if it is possible to
+        read a few bytes and then determine how long this field is, that is fine. If it is not possible without reading
+        the entire field, this method should return :const:`None`.
+
+        The default implementation is to call ``len(self)`` and use that if possible.
+
+        :param io.BufferedIOBase stream: The IO stream to consume from.
+        :param ParsingContext context: The context used for the parsing.
+        :param int offset: The current relative offset in the stream
+        :return: The new absolute offset in the stream, or None if this field can not be processed without parsing it
+                 entirely.
+        """
+        try:
+            return stream.seek(len(self), io.SEEK_CUR)
+        except ImpossibleToCalculateLengthError:
+            return None
 
     def from_stream(self, stream, context):
         """Given a stream of bytes object, consumes a given bytes object to Python representation. The given stream
