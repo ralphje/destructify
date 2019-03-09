@@ -324,6 +324,9 @@ BitField
 
       Thus, ignoring bits 2-0 from the first byte.
 
+   :attr:`StructureOptions.alignment` is *ignored* when two :class:`BitField` follow each other, and the previous
+   field does not specify :attr:`realign`.
+
 
 ConstantField
 =============

@@ -246,6 +246,22 @@ class BitField(FixedLengthField):
             result += stream.finalize()
         return result
 
+    def seek_start(self, stream, context, position):
+        if self.offset is not None or self.skip is not None:
+            # allow offset and skip to work as normal
+            return super().seek_start(stream, context, position)
+        elif self.bound_structure is not None and self.bound_structure._meta.alignment is not None:
+            # check if we allow the alignment to apply to this field: this is the case if the previous field is not
+            # of BitField
+            prev_field = self.bound_structure._meta.get_previous_field(self)
+            if not isinstance(prev_field, BitField) or prev_field.realign:
+                return super().seek_start(stream, context, position)
+
+        try:
+            return stream.tell()
+        except (OSError, AttributeError):
+            return position
+
 
 class StringField(BytesField):
     def __init__(self, *args, encoding=None, errors='strict', **kwargs):

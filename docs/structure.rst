@@ -277,7 +277,8 @@ The Meta class
       This is useful for e.g. C-style structs, that are automatically aligned. See
       `The Lost Art of Structure Packing <http://www.catb.org/esr/structure-packing/>`_ for more information about this.
 
-      This alignment does *not* apply when :attr:`Field.offset` or :attr:`Field.skip` is set.
+      This alignment does *not* apply when :attr:`Field.offset` or :attr:`Field.skip` is set. When using subsequent
+      :class:`BitField` s, this may also be ignored.
 
 Python API
 ==========

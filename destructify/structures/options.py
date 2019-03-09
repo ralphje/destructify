@@ -42,6 +42,15 @@ class StructureOptions:
     def add_field(self, field):
         self.fields.insert(bisect(self.fields, field), field)
 
+    def get_previous_field(self, field):
+        """Returns the field before the field provided by *field*. Returns :const:`None` if the field is the first
+        field. Raises :exc:`ValueError` if the field is not found.
+        """
+        i = self.fields.index(field)
+        if i == 0:
+            return None
+        return self.fields[i - 1]
+
     def get_field_by_name(self, name):
         for field in self.fields:
             if field.name == name:

@@ -236,6 +236,52 @@ class BitFieldTest(unittest.TestCase):
 
         self.assertEqual(b"\xc0\x33", Struct(bit1=1, bit2=1, byte=b'\x33').to_bytes())
 
+    def test_field_with_structure_alignment(self):
+        class Struct(Structure):
+            bit1 = BitField(length=1)
+            bit2 = BitField(length=1, realign=True)
+            byte = FixedLengthField(length=1)
+
+            class Meta:
+                alignment = 2
+
+        s = Struct.from_bytes(b"\xFF\0\xFF")
+        self.assertEqual(1, s.bit1)
+        self.assertEqual(1, s.bit2)
+        self.assertEqual(b'\xFF', s.byte)
+
+        self.assertEqual(b"\xc0\0\x33", Struct(bit1=1, bit2=1, byte=b'\x33').to_bytes())
+
+    def test_field_with_structure_alignment_fails(self):
+        class Struct(Structure):
+            bit1 = BitField(length=1)
+            byte = FixedLengthField(length=1)
+            bit2 = BitField(length=1)
+
+            class Meta:
+                alignment = 2
+
+        with self.assertRaises(MisalignedFieldError):
+            Struct.from_bytes(b"\xFF\0\xFF\0\xFF")
+        with self.assertRaises(MisalignedFieldError):
+            Struct(bit1=1, bit2=1, byte=b'\x33').to_bytes()
+
+    def test_field_structure_alignments(self):
+        class Struct(Structure):
+            bit1 = BitField(length=1, realign=True)
+            byte = FixedLengthField(length=1)
+            bit2 = BitField(length=1)
+
+            class Meta:
+                alignment = 2
+
+        s = Struct.from_bytes(b"\xFF\0\xFF\0\xFF")
+        self.assertEqual(1, s.bit1)
+        self.assertEqual(1, s.bit2)
+        self.assertEqual(b'\xFF', s.byte)
+
+        self.assertEqual(b"\x80\0\x33\0\x80", Struct(bit1=1, bit2=1, byte=b'\x33').to_bytes())
+
 
 class StructureFieldTest(unittest.TestCase):
     def test_parsing(self):
