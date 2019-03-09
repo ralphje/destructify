@@ -107,6 +107,16 @@ class Field:
             return '<%s: %s>' % (path, name)
         return '<%s>' % path
 
+    def __str__(self):
+        """Display the module, class, and name of the field."""
+
+        if hasattr(self, 'bound_structure'):
+            return self.full_name
+        elif hasattr(self, 'name'):
+            return self.name
+        else:
+            return repr(self)
+
     @property
     def has_default(self):
         return self.default is not NOT_PROVIDED

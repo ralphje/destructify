@@ -17,7 +17,7 @@ significantly.
 * Added :attr:`BytesField.terminator_handler`
 * New field :class:`BytesField`, merging the features of :class:`FixedLengthField` and :class:`TerminatedField`. These
   fields will remain as subclasses.
-* New field: :class:`MagicField`
+* New field: :class:`ConstantField`
 * New field: :class:`SwitchField`
 * New field: :class:`VariableLengthQuantityField`
 * Merged :class:`FixedLengthStringField` and :class:`TerminatedStringField` into :class:`StringField`

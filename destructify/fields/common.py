@@ -6,28 +6,6 @@ from ..exceptions import DefinitionError, WriteError, WrongMagicError, StreamExh
 from .base import _retrieve_property
 
 
-class MagicField(Field):
-    def __init__(self, magic, *args, **kwargs):
-        self.magic = magic
-        kwargs.setdefault("default", self.magic)
-        super().__init__(*args, **kwargs)
-
-    def __len__(self):
-        return len(self.magic)
-
-    def from_stream(self, stream, context):
-        val = context.read_stream(stream, size=len(self.magic))
-        if val != self.magic:
-            raise WrongMagicError("The magic is incorrect for {}".format(self.full_name))
-
-        return val, len(val)
-
-    def to_stream(self, stream, value, context):
-        if value != self.magic:
-            raise WriteError("The magic is incorrect for {}".format(self.full_name))
-        return context.write_stream(stream, value)
-
-
 class BytesField(Field):
     def __init__(self, *args, length=None, terminator=None, step=1, terminator_handler='consume',
                  strict=True, padding=None, **kwargs):

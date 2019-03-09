@@ -2,7 +2,7 @@ import io
 import unittest
 
 from destructify import Structure, BitField, FixedLengthField, StructureField, MisalignedFieldError, \
-    StringField, IntegerField, BytesField, VariableLengthQuantityField, MagicField, WrongMagicError, ParsingContext
+    StringField, IntegerField, BytesField, VariableLengthQuantityField, ParsingContext
 from destructify.exceptions import DefinitionError, StreamExhaustedError, WriteError
 from tests import DestructifyTestCase
 
@@ -12,26 +12,6 @@ class PeekableBytesIO(io.BytesIO):
         result = self.read(size)
         self.seek(-len(result), io.SEEK_CUR)
         return result
-
-
-class MagicTestCase(DestructifyTestCase):
-    def test_simple(self):
-        self.assertFieldStreamEqual(b"hello", b"hello", MagicField(b"hello"))
-
-    def test_wrong_read(self):
-        with self.assertRaises(WrongMagicError):
-            self.call_field_from_stream(MagicField(b"hello"), b"derp")
-
-    def test_wrong_write(self):
-        with self.assertRaises(WriteError):
-            self.call_field_to_stream(MagicField(b"hello"), b"derp")
-
-    def test_default_is_set(self):
-        self.assertEqual(True, MagicField(b"hello").has_default)
-        self.assertEqual(b"hello", MagicField(b"hello").default)
-
-        self.assertEqual(True, MagicField(b"hello", default=12).has_default)
-        self.assertEqual(12, MagicField(b"hello", default=12).default)
 
 
 class BytesFieldTestCase(DestructifyTestCase):

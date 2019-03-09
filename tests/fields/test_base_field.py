@@ -2,7 +2,7 @@ import enum
 import unittest
 
 from destructify import Structure, BitField, FixedLengthField, DefinitionError, BaseFieldMixin, Field, EnumField, \
-    IntegerField, ByteField, ConditionalField, ArrayField, SwitchField
+    IntegerField, ByteField, ConditionalField, ArrayField, SwitchField, ConstantField, WrongMagicError, WriteError
 from tests import DestructifyTestCase
 
 
@@ -31,6 +31,37 @@ class BaseFieldTestCase(unittest.TestCase):
         self.assertEqual("thing", Struct._meta.fields[0].base_field.name)
         self.assertEqual("struct.thing", Struct._meta.fields[0].base_field.full_name)
         self.assertIs(Struct._meta.fields[0].bound_structure, Struct._meta.fields[0].base_field.bound_structure)
+
+
+class ConstantFieldTest(DestructifyTestCase):
+    def test_simple(self):
+        self.assertFieldStreamEqual(b"hello", b"hello", ConstantField(b"hello"))
+
+    def test_wrong_read(self):
+        with self.assertRaises(WrongMagicError):
+            self.call_field_from_stream(ConstantField(b"hello"), b"derp2")
+
+    def test_wrong_write(self):
+        with self.assertRaises(WriteError):
+            self.call_field_to_stream(ConstantField(b"hello"), b"derp2")
+
+    def test_default_is_set(self):
+        self.assertEqual(True, ConstantField(b"hello").has_default)
+        self.assertEqual(b"hello", ConstantField(b"hello").default)
+
+        self.assertEqual(True, ConstantField(b"hello", default=12).has_default)
+        self.assertEqual(12, ConstantField(b"hello", default=12).default)
+
+    def test_based_on_other_field(self):
+        self.assertFieldStreamEqual(b"\xf1", 0xf1, ConstantField(0xf1, base_field=IntegerField(length=1)))
+        with self.assertRaises(WrongMagicError):
+            self.call_field_from_stream(ConstantField(0xf1, base_field=IntegerField(length=1)), b"\xf2")
+        with self.assertRaises(WriteError):
+            self.call_field_to_stream(ConstantField(0xf1, base_field=IntegerField(length=1)), 12)
+
+    def test_wrong_constant_value(self):
+        with self.assertRaises(DefinitionError):
+            ConstantField(0xf1)
 
 
 class ConditionalFieldTest(unittest.TestCase):

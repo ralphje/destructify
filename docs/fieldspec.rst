@@ -77,17 +77,6 @@ and can be defined on every class:
 
    When you set :attr:`offset` or :attr:`skip`, :attr:`StructureOptions.alignment` is ignored for this field.
 
-MagicField
-==========
-.. autoclass:: MagicField
-
-   The :class:`MagicField` is intended to read/write a specific magic string from and to a stream. If anything else is
-   read or written, an exception is raised. Note that the :attr:`Field.default` is also set to the magic.
-
-   .. attribute:: magic
-
-      The magic bytes that must be checked against.
-
 BytesField
 ==========
 .. autoclass:: BytesField
@@ -313,6 +302,23 @@ BitField
            fffff     bbbbbbbb
 
       Thus, ignoring bits 2-0 from the first byte.
+
+
+ConstantField
+=============
+.. autoclass:: ConstantField
+
+   The :class:`ConstantField` is intended to read/write a specific magic string from and to a stream. If anything else is
+   read or written, an exception is raised. Note that the :attr:`Field.default` is also set to the magic.
+
+   .. attribute:: value
+
+      The magic bytes that must be checked against.
+
+   .. attribute:: base_field
+
+      The field to read the :attr:`value` from. If this is not set, and :attr:`value` is a bytes object, a
+      :class:`FixedLengthField` as its default. If the value is of any other object, you must specify this yourself.
 
 StructField
 ===========

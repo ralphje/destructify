@@ -1,5 +1,5 @@
-from . import Field, Substream
-from ..exceptions import DefinitionError, StreamExhaustedError, ParseError, WriteError
+from . import Field, Substream, FixedLengthField
+from ..exceptions import DefinitionError, StreamExhaustedError, ParseError, WriteError, WrongMagicError
 from .base import _retrieve_property
 
 
@@ -21,6 +21,36 @@ class BaseFieldMixin(object):
     @property
     def ctype(self):
         return self._ctype or self.base_field.ctype
+
+
+class ConstantField(BaseFieldMixin, Field):
+    def __init__(self, value, base_field=None, *args, **kwargs):
+        if base_field is None:
+            if isinstance(value, bytes):
+                base_field = FixedLengthField(length=len(value))
+            else:
+                raise DefinitionError("{} must specify a base_field or a bytes object as default value".format(self))
+
+        self.value = value
+        kwargs.setdefault("default", self.value)
+
+        super().__init__(base_field, *args, **kwargs)
+
+    def __len__(self):
+        return len(self.base_field)
+
+    def from_stream(self, stream, context):
+        value, length = self.base_field.from_stream(stream, context)
+
+        if value != self.value:
+            raise WrongMagicError("The constant is incorrect for {}".format(self.full_name))
+
+        return value, length
+
+    def to_stream(self, stream, value, context):
+        if value != self.value:
+            raise WriteError("The constant is incorrect for {}".format(self.full_name))
+        return self.base_field.to_stream(stream, value, context)
 
 
 class ArrayField(BaseFieldMixin, Field):
