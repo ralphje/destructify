@@ -280,6 +280,23 @@ The Meta class
       This alignment does *not* apply when :attr:`Field.offset` or :attr:`Field.skip` is set. When using subsequent
       :class:`BitField` s, this may also be ignored.
 
+   .. attribute:: checks
+
+      This is a list of checks to execute after parsing the :class:`Structure`, or just before writing it. Every check
+      must be a function that accepts a :attr:`ParsingContext.f` object, and return a truthy value when the check is
+      successful. For instance::
+
+          class Struct(Structure):
+              value = IntegerField(length=1)
+              checksum = IntegerField(length=1)
+
+              class Meta:
+                  checks = [
+                      lambda f: (f.value1 * 2 % 256) == f.checksum
+                  ]
+
+      When any of the checks fails, a :exc:`CheckError` is raised.
+
 Python API
 ==========
 .. autoclass:: Structure

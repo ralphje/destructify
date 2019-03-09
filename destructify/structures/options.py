@@ -13,6 +13,7 @@ class StructureOptions:
         self.byte_order = None
         self.encoding = 'utf-8'
         self.alignment = None
+        self.checks = ()
 
     def contribute_to_class(self, cls, name):
         setattr(cls, '_meta', self)
@@ -28,7 +29,7 @@ class StructureOptions:
                 # Ignore any private attributes we don't care about.
                 if name.startswith('_'):
                     del meta_attrs[name]
-            for attr_name in ('object_name', 'structure_name', 'byte_order', 'encoding', 'alignment'):
+            for attr_name in ('object_name', 'structure_name', 'byte_order', 'encoding', 'alignment', 'checks'):
                 if attr_name in meta_attrs:
                     setattr(self, attr_name, meta_attrs.pop(attr_name))
                 elif hasattr(self.meta, attr_name):

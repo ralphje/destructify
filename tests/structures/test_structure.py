@@ -4,7 +4,7 @@ from unittest import mock
 import lazy_object_proxy
 
 from destructify import ParsingContext, Structure, FixedLengthField, StringField, TerminatedField, IntegerField, \
-    Substream
+    Substream, CheckError
 from tests import DestructifyTestCase
 
 
@@ -26,6 +26,23 @@ class StructureParsingTest(DestructifyTestCase):
         TestStructure.from_stream(io.BytesIO(b"abcdef"), context)
 
         self.assertEqual(False, hasattr(context.fields['field1'], 'raw'))
+
+
+class ChecksTest(DestructifyTestCase):
+    def test_checks_work(self):
+        class TestStructure(Structure):
+            field1 = FixedLengthField(length=5)
+            field2 = FixedLengthField(length=5)
+
+            class Meta:
+                checks = [
+                    lambda c: c.field1 == c.field2
+                ]
+
+        with self.assertRaises(CheckError):
+            TestStructure.from_bytes(b"abcde12345")
+        TestStructure.from_bytes(b"abcdeabcde")
+
 
 
 class InitializeFinalizeTest(DestructifyTestCase):

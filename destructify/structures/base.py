@@ -1,6 +1,7 @@
 import inspect
 import io
 
+from destructify.exceptions import CheckError
 from ..parsing import ParsingContext, FieldContext
 from ..parsing.bitstream import BitStream
 from .options import StructureOptions
@@ -192,6 +193,9 @@ class Structure(metaclass=StructureBase):
 
         values = cls.initialize(values)
 
+        if not all((f(context.f) for f in cls._meta.checks)):
+            raise CheckError("One of the checks for {} failed.".format(cls._meta.structure_name))
+
         return cls(**values), max_offset - start_offset
 
     def to_stream(self, stream, context=None):
@@ -224,6 +228,9 @@ class Structure(metaclass=StructureBase):
             values[field.name] = field.get_final_value(v, context)
 
         context.field_values = self.finalize(values)
+
+        if not all((f(context.f) for f in self._meta.checks)):
+            raise CheckError("One of the checks for {} failed.".format(self._meta.structure_name))
 
         # We keep track of our starting offset, the current offset and the max offset.
         try:

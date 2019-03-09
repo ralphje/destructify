@@ -32,3 +32,7 @@ class WrongMagicError(ParseError):
 
 class WriteError(DestructifyError):
     pass
+
+
+class CheckError(DestructifyError):
+    pass
