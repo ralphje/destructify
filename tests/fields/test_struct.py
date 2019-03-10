@@ -2,7 +2,7 @@ import unittest
 
 from destructify import Structure, IntField, StructField, CharField, ByteField, UnsignedByteField, BoolField, \
     ShortField, UnsignedShortField, UnsignedIntField, LongField, UnsignedLongField, LongLongField, \
-    UnsignedLongLongField, SizeField, UnsignedSizeField, HalfPrecisionFloatField, FloatField, DoubleField
+    UnsignedLongLongField, SizeField, UnsignedSizeField, HalfPrecisionFloatField, FloatField, DoubleField, struct
 from tests import DestructifyTestCase
 
 
@@ -59,6 +59,6 @@ class StructSubclassTest(DestructifyTestCase):
         self.assertFieldStreamEqual(b"AD\x00\x00", 12.25, FloatField(byte_order='big'))
         self.assertFieldStreamEqual(b"@(\x80\x00\x00\x00\x00\x00", 12.25, DoubleField(byte_order='big'))
 
-    def test_size(self):
-        self.assertFieldStreamEqual(b"\xff\xff\xff\x00", 0xffffff, SizeField(byte_order='native'))
-        self.assertFieldStreamEqual(b"\xff\xff\xff\x00", 0xffffff, UnsignedSizeField(byte_order='native'))
+    def test_native(self):
+        self.assertFieldStreamEqual(struct.pack("@n", 0xffffff), 0xffffff, SizeField(byte_order='native'))
+        self.assertFieldStreamEqual(struct.pack("@N", 0xffffff), 0xffffff, UnsignedSizeField(byte_order='native'))
