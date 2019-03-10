@@ -44,7 +44,6 @@ class ChecksTest(DestructifyTestCase):
         TestStructure.from_bytes(b"abcdeabcde")
 
 
-
 class InitializeFinalizeTest(DestructifyTestCase):
     def test_initializer_called(self):
         class TestStructure(Structure):
@@ -133,6 +132,16 @@ class LazyTest(DestructifyTestCase):
         t = TestStructure.from_bytes(b"12")
         self.assertIsInstance(t.field1, lazy_object_proxy.Proxy)
         self.assertIsInstance(t.field2, lazy_object_proxy.Proxy)
+
+    def test_lazy_negative_offset_field(self):
+        class TestStructure(Structure):
+            field2 = FixedLengthField(length='length', lazy=True)
+            field3 = FixedLengthField(length=1)
+            length = IntegerField(offset=-1, length=1, lazy=True)
+
+        t = TestStructure.from_bytes(b"1231\x03")
+        self.assertIsInstance(t.field2, lazy_object_proxy.Proxy)
+        self.assertNotIsInstance(t.length, lazy_object_proxy.Proxy)  # should be resolved now
 
 
 class OffsetTest(DestructifyTestCase):

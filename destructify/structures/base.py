@@ -140,9 +140,12 @@ class Structure(metaclass=StructureBase):
         # This allows referencing fields that are defined later, and absolute offset fields can simply be referenced
         for field in cls._meta.fields:
             if field.lazy and field.offset is not None and isinstance(field.offset, int):
+                offset = field.seek_start(stream, context, offset - start_offset)
                 context.fields[field.name] = FieldContext(context,
-                                                          parsed=True, offset=field.offset, length=None,
+                                                          parsed=True, offset=offset, length=None,
                                                           stream=stream, field=field, lazy=True)
+
+        stream.seek(start_offset)
 
         # Now do all the fields, this includes all already resolved fields.
         for field in cls._meta.fields:
