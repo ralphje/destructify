@@ -102,88 +102,53 @@ and writing data to and from a stream, with a single Python representation. Taki
 example, you may have noticed that we are only able to fit 5-byte names in this field. What if we had longer or shorter
 names? Luckily, :class:`StringField` allows you to pass different keyword-arguments to define how this works.
 
-We dive deeper into the different ways :class:`StringField` operates in the section :ref:`StringFieldExample`.
-A full specification of built-in fields can be found in :ref:`FieldSpec`. If none of these fields does exactly what you
-need, you may consider extending one of the built-in fields, or even implementing your own.
+Reading through :ref:`FieldSpec` you will discover that all fields have a smorgasbord of different attributes to control
+how they read, convert and parse values to and from a stream. To illustrate what we mean, we show you how
+:class:`BytesField` has different operating modes in the next section.
 
-Depending on other fields
-=========================
-Until now, we have been using fixed length fields, without any dependency on other fields. However, it is not untypical
-for a field to have its length set by some other property. Take the following example::
+But remember, you can always implement your own field if none of the built-in fields does what you want.
 
-    import destructify
+Controlling a field through attributes
+======================================
+Most fields take the :class:`BytesField` as a base class, as this field has various common options for parsing bytes
+from a stream. Two of the most common cases, a fixed-length field, and a field 'until' some byte sequence, are possible.
+It is even possible to make this a lot more complex, as we try to show in five examples:
 
-    class DependingStructure(destructify.Structure):
-        length = destructify.IntegerField(1)
-        content = destructify.BytesField(length='length')
+``BytesField(length=5)``
+  This reads exactly the specified amount of bytes from the field, and returns that immediately.
 
-Since the :attr:`BytesField.length` attribute is special and allows you to set a string referencing another field,
-you can now simply do the following::
+``BytesField(length=20, padding=b' ')``
+  This is a variant of the previous example, that allows for some variance in the field: 20 bytes are read and all
+  spaces are removed from right-to-left. When writing, spaces are automatically added as well.
 
-    >>> DependingStructure(content=b"hello world").to_bytes()
-    b'\x0bhello world'
-    >>> DependingStructure.from_bytes(b'\x06hello!')
-    <DependingStructure: DependingStructure(length=6, content=b'hello!')>
+``BytesField(terminator=b'\0')``
+  This form allows us to read until a single NULL-byte is encountered. This is typically how strings are represented in
+  C, and are called NULL-terminated strings. The advantage of this is that the value can take any length, as long as it
+  is terminated with a NULL-byte (and the value itself does not contain any NULL-bytes).
 
-Actually, there's some magic involved here, and that centers around the :class:`ParsingContext` class. This class is
-passed around while parsing from and writing to a stream, and filled with information about the current process. This
-allows you to reference fields that have been parsed before the current field. This is what happens when you pass a
-string to the :attr:`BytesField.length` attribute: it is interpreted as a field name and obtained from the context
-while parsing and writing the data.
+  Using this has some disadvantages, as it is not possible to use :attr:`Field.lazy` on such a field: it must be parsed
+  in its entirety to know its length.
 
-All of this does not entirely explain why writing works, as how does the ``length`` field know that it needs to get the
-length from the ``content`` field? That is because there's something else going on in the background: when set to a
-string, the :attr:`BytesField` automatically specifies the :attr:`Field.override` of the ``length`` field to be set to
-another value, just before it is being written.
+``BytesField(length=20, terminator=b'\0')``
+  This form combines the two methods by specifying both a fixed amount of bytes, *and* a terminator. This is a common
+  model when writing strings to fixed-length buffers in C: it reads 20 bytes from the stream, and then looks for the
+  terminator.
 
-This is nice and all, but what if the length is actually some calculation that is more advanced than simply taking the
-length? For instance, what if the length field includes its own length? This is also very easy! ::
+  This is different from specifying a length with padding, as this allows junk to exist in the padding of the field.
+  That may occur commonly in C: imagine you declare a buffer of fixed length, but do not properly fill it with zeroes.
+  In that case, some random bytes may exist in the padding, not just NULL-bytes.
 
-    import destructify
+  Note that this field does not know how to write a value that is too short, as padding has nog been defined yet; but
+  there is a solution:
 
-    class DependingStructure(destructify.Structure):
-        length = destructify.IntegerField(length=4, byte_order='big', signed=False,
-                                          override=lambda c, v: len(c.content) + 4 if v is None else v)
-        content = destructify.BytesField(length=lambda c: c.length - 4)
+``BytesField(length=20, terminator=b'\0', padding=b'\0')``
+  This is the best of all worlds, allowing us to read 20 bytes, terminate the relevant part at the NULL-terminator while
+  reading, and allow us to write shorter-length values as these will be padded with NULL-bytes. This is usually how
+  you'd implement fixed-length C-style strings.
 
-As you can spot, we now explicitly state using lambda functions how to get the length when we are reading the field,
-and also how to set the length when we are writing the field.
-
-The :attr:`Field.override` we specify, receives the
-current :attr:`ParsingContext.f` and the current value. Using attribute access on the  :attr:`ParsingContext.f`, we get the
-length of the ``content`` field. We have added in a check to not override the value of
-``length`` when it is already set to something else, allowing us to explicitly write 'wrong' values if we need to.
-
-Similarly, the :attr:`BytesField.length` accepts a function taking a single argument: the :attr:`ParsingContext.f`. A
-simple attribute access allows us to get the current value of the just-before parsed ``length`` field.
-
-Several fields allow you to specify advanced structures such as these, allowing you to dynamically modify how your
-structure is built. See :ref:`FieldSpec` for a full listing of all the fields and how you can specify calculated
-values.
-
-The ``this`` object
--------------------
-
-.. class:: this
-
-There is one final thing we want to show you: using the special :class:`this` object to construct lambda functions. This
-object can be used similarly to a :attr:`ParsingContext.f` object, except that it can be used to construct a lambda
-automatically. This means that these are equivalent::
-
-    this.field + this.field2 * 3
-    lambda this: this.field + this.field2 * 3
-
-The :class:`this` object can be used in any place where a single-argument lambda is expected::
-
-    import destructify
-    from destructify import this
-
-    class DependingStructure(destructify.Structure):
-        ...  # same as above
-        content = destructify.BytesField(length=this.length - 4)
-
-Note that many operations are not possible on a :class:`this` object, because they require a lazy alternative. This
-holds for the ``len`` function; a lazy alternative is available in :func:`len_`.
+As you can see from these five examples, it highly depends on how your structure looks like what you'd define in the
+structure. Again, these are only examples, and you should read :ref:`FieldSpec` to get an idea of all of the options
+for all of the built-in fields.
 
 Streams
 =======
@@ -245,86 +210,59 @@ As it is common to modify some fields just before they have been written, you ma
 
 The Meta class
 ==============
+You may have noticed that we use a class named :class:`Structure.Meta` in some of our definitions. You can use this
+class to specify some global attributes for your structure. For instance, this allows you to set some defaults on
+some fields, e.g. the :attr:`StructureOptions.byte_order`.
 
-.. autoclass:: StructureOptions
+The Meta attributes you define, are available in the :attr:`Structure._meta` attribute of the structure. This is a
+:class:`StructureOptions` object.
 
-    The :class:`StructureOptions` class is the object that is automatically created when you create a :class:`Structure`
-    and is accessible through :attr:`Structure._meta`. The information in this object is based on the data you specify
-    in the class :class:`Structure.Meta` in the definition of your structure.
+The following options are available:
 
-   .. automethod:: StructureOptions.get_field_by_name
 
-   .. attribute:: object_name
+.. attribute:: StructureOptions.object_name
 
-      The name of the structure's definition class. Defaults to the name of your class.
+   The name of the structure's definition class. Defaults to the name of your class.
 
-   .. attribute:: structure_name
+.. attribute:: StructureOptions.structure_name
 
-      The name of the structure. Defaults to the lowercased name of your class.
+   The name of the structure. Defaults to the lowercased name of your class.
 
-   .. attribute:: byte_order
+.. attribute:: StructureOptions.byte_order
 
-      The default byte-order for fields in this structure. Is not set by default, and can be ``little`` or ``big``.
+   The default byte-order for fields in this structure. Is not set by default, and can be ``little`` or ``big``.
 
-   .. attribute:: encoding
+.. attribute:: StructureOptions.encoding
 
-      The default character encoding for fields in this structure. Defaults to ``utf-8``.
+   The default character encoding for fields in this structure. Defaults to ``utf-8``.
 
-   .. attribute:: alignment
+.. attribute:: StructureOptions.alignment
 
-      Can be set to a number to align the start of all fields. For instance, if this is ``4``, the start of all fields
-      will be aligned to 4-byte multiples; meaning that, after a 2-byte field, a 2-byte gap will automatically be added.
-      This is useful for e.g. C-style structs, that are automatically aligned. See
-      `The Lost Art of Structure Packing <http://www.catb.org/esr/structure-packing/>`_ for more information about this.
+   Can be set to a number to align the start of all fields. For instance, if this is ``4``, the start of all fields
+   will be aligned to 4-byte multiples; meaning that, after a 2-byte field, a 2-byte gap will automatically be added.
+   This is useful for e.g. C-style structs, that are automatically aligned.
 
-      This alignment does *not* apply when :attr:`Field.offset` or :attr:`Field.skip` is set. When using subsequent
-      :class:`BitField` s, this may also be ignored.
+   This alignment does *not* apply when :attr:`Field.offset` or :attr:`Field.skip` is set. When using subsequent
+   :class:`BitField` s, this may also be ignored.
 
-   .. attribute:: checks
+   .. seealso::
 
-      This is a list of checks to execute after parsing the :class:`Structure`, or just before writing it. Every check
-      must be a function that accepts a :attr:`ParsingContext.f` object, and return a truthy value when the check is
-      successful. For instance::
+      `The Lost Art of Structure Packing <http://www.catb.org/esr/structure-packing/>`_
+         Some background information about alignment of C-style structures.
 
-          class Struct(Structure):
-              value = IntegerField(length=1)
-              checksum = IntegerField(length=1)
+.. attribute:: StructureOptions.checks
 
-              class Meta:
-                  checks = [
-                      lambda f: (f.value1 * 2 % 256) == f.checksum
-                  ]
+   This is a list of checks to execute after parsing the :class:`Structure`, or just before writing it. Every check
+   must be a function that accepts a :attr:`ParsingContext.f` object, and return a truthy value when the check is
+   successful. For instance::
 
-      When any of the checks fails, a :exc:`CheckError` is raised.
+       class Struct(Structure):
+           value = IntegerField(length=1)
+           checksum = IntegerField(length=1)
 
-Python API
-==========
-.. autoclass:: Structure
+           class Meta:
+               checks = [
+                   lambda f: (f.value1 * 2 % 256) == f.checksum
+               ]
 
-   You use :class:`Structure` as the base class for the definition of your structures.
-
-   .. automethod:: Structure.from_stream
-
-   .. automethod:: Structure.from_bytes
-
-   .. automethod:: Structure.initialize
-
-   .. automethod:: Structure.to_stream
-
-   .. automethod:: Structure.to_bytes
-
-   .. automethod:: Structure.finalize
-
-   .. automethod:: Structure.__bytes__
-
-   .. automethod:: Structure.as_cstruct
-
-   .. attribute:: Structure._meta
-
-      This allows you to access the :class:`StructureOptions` class of this :class:`Structure`.
-
-.. autoclass:: StructureBase
-
-   This is the metaclass of :class:`Structure`.
-
-   .. automethod:: StructureBase.__len__
+   When any of the checks fails, a :exc:`CheckError` is raised.

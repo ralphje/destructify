@@ -100,24 +100,27 @@ and can be defined on every class:
 
 .. attribute:: Field.lazy
 
-   When a :class:`Field` is lazy, it is not actually parsed from the stream during parsing, but only when the value
-   is evaluated. A :class:`Proxy` object from the module
-   `lazy-object-proxy <https://pypi.org/project/lazy-object-proxy/>`_ is returned instead: you can use
-   this value wherever you would use a normal value, but be aware that it *may* be a :class:`Proxy` object. Such an
-   object is not created in some cases:
+   A lazy field is not parsed from the stream during the parsing of the bytes; its parsing is deferred until the value
+   is evaluated. This is done by returning a Proxy object from the module
+   `lazy-object-proxy <https://pypi.org/project/lazy-object-proxy/>`_ that references the offset of the field in the
+   stream and the stream itself. The first time the Proxy object is evaluated, the stream is read and the data is
+   parsed. This Proxy object can be used almost the same as an actual value.
+
+   This requires that the stream is not closed when not all lazy fields have been parsed. Additionally, the stream must
+   be seekable to find the appropriate data.
+
+   Note that specifying :attr:`lazy` does not prohibit the parser to parse the field anyway, and return the actual
+   value rather than a Proxy object. Some cases where this happens:
 
    * The :attr:`lazy` attribute has no effect when a value can not be retrieved lazily, i.e. :meth:`Field.seek_end`
      returns :const:`None`, and the next field defines no absolute :attr:`offset`. In this case, the field must still be
-     parsed to retrieve its full length.
+     parsed to retrieve its full length, and is therefore parsed immediately.
 
    * When :attr:`lazy` fields are referenced and subsequently parsed during parsing, the :class:`Structure` will be
-     built with the actual value rather than the :class:`Proxy` object.
+     built with the actual value rather than the Proxy object.
 
    Additionally, :attr:`lazy` fields that have an absolute :attr:`offset` set (to an integer value), can be referenced
    during parsing, even if they are defined later.
-
-   The :class:`Proxy` object can not be resolved when the stream is closed, and :attr:`lazy` fields require that the
-   stream is seekable.
 
    This attribute has no effect when writing to a stream; a lazy value will be resolved by :meth:`Structure.to_stream`.
 

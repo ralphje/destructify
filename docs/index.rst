@@ -31,7 +31,9 @@ Contents:
    :maxdepth: 2
 
    structure
+   parsing
    fields
+   api
    fieldspec
    changelog
 

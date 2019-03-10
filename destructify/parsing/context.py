@@ -24,9 +24,11 @@ class FieldContext:
         self.stream.seek(self.offset)
         try:
             result = self.field.from_stream(self.stream, self.context)
-            self._value = result[0]
-            self.length = result[1]
-            self.lazy = False
+            # if the context is not yet done, we can update the field to its final value
+            if not self.context.done:
+                self._value = result[0]
+                self.length = result[1]
+                self.lazy = False
             return result[0]
         finally:
             self.stream.seek(current_offset)
@@ -48,10 +50,11 @@ class ParsingContext:
     to contain context for the field that is being parsed.
     """
 
-    def __init__(self, *, structure=None, field_values=None, parent=None, capture_raw=False):
+    def __init__(self, *, structure=None, field_values=None, parent=None, capture_raw=False, done=False):
         self.structure = structure
         self.parent = parent
         self.capture_raw = capture_raw
+        self.done = done
 
         self.field_values = field_values
         self.f = ParsingContext.F(self)

@@ -199,6 +199,8 @@ class Structure(metaclass=StructureBase):
         if not all((f(context.f) for f in cls._meta.checks)):
             raise CheckError("One of the checks for {} failed.".format(cls._meta.structure_name))
 
+        context.done = True
+
         return cls(**values), max_offset - start_offset
 
     def to_stream(self, stream, context=None):
@@ -253,6 +255,8 @@ class Structure(metaclass=StructureBase):
 
         offset += stream.finalize()
         max_offset = max(offset, max_offset)
+
+        context.done = True
 
         return max_offset - start_offset
 
