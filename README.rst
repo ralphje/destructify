@@ -2,7 +2,7 @@
 Destructify
 ===========
 .. image:: https://img.shields.io/travis/com/ralphje/destructify.svg
-   :target: https://travis-ci.com/ralphje/destuctify?branch=master
+   :target: https://travis-ci.com/ralphje/destructify?branch=master
 
 .. image:: https://img.shields.io/codecov/c/github/ralphje/destructify.svg?style=flat
    :target: http://codecov.io/github/ralphje/destructify?branch=master
@@ -11,7 +11,7 @@ Destructify
    :target: https://pypi.python.org/pypi/destructify
 
 .. image:: https://img.shields.io/readthedocs/destructify.svg
-   :target: https://destructify.readthedocs.io/en/latest/
+   :target: https://readthedocs.org/projects/destructify/
 
 Destructify is a Pythonic and pure-Python 3 method to express binary data, allowing you to read and write binary
 structures. You simply specify a structure by creating a class as follows:
