@@ -143,7 +143,7 @@ class FieldContext:
         finally:
             self.context.stream.seek(current_offset)
 
-    def add_parse_info(self, value, offset, length, lazy=False):
+    def add_parse_info(self, offset, length, value=NOT_PROVIDED, lazy=False):
         """Call that is used when the value has been parsed. This fills all information in te structure.
 
         :param value: The value that has been parsed.
@@ -151,6 +151,9 @@ class FieldContext:
         :param length: The length of the value in the stream
         :param lazy: Indicates whether the value is lazily loaded, i.e. the stream is not hit (value is ignored)
         """
+        if value is NOT_PROVIDED and not lazy:
+            raise ValueError("add_parse_info requires value to be set if not lazy")
+
         self.parsed = True
         self._value = value
         self.offset = offset

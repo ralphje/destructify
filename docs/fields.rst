@@ -44,6 +44,35 @@ All built-in fields will ensure that the two truths hold. If this is not possibl
 an error will be raised. Some fields allow you to specify ``strict=False``, which will disable these checks and may
 break idempotency.
 
+How a Structure is read and written
+===================================
+Before we start by creating our own fields, it is important to know how values are processed by Destructify. In the
+examples below, we'll be subclassing :meth:`Field.from_stream` and :meth:`Field.to_stream`. These methods define how
+a field reads and writes values. This is the recommended method if you are writing your own fields.
+
+However, additional hooks allow you to convert values on different levels. The list below shows where you can adjust
+the value of your structures without implementing entirely new fields.
+
+The following functions are called on a value while reading from a stream by `Structure.from_stream`:
+
+* :meth:`Field.from_stream` reads the value from the stream and adjusts it to a Python representation
+* :meth:`Field.decode_value` is called on the value retrieved from the stream to convert it to the proper Python value,
+  implementing :attr:`Field.decoder`.
+* :meth:`Field.initialize_value` is a function that is intended to adjust the value based on other fields, which is an
+  empty hook function (at this point).
+* :meth:`Structure.initialize` is called to allow you for some final adjustments
+
+And the following methods are called before writing to a stream by `Structure.to_stream`:
+
+* :meth:`Field.finalize_value` is called on all values in the structure, implementing :attr:`Field.override`.
+* :meth:`Structure.finalize` is called to allow you to make some final adjustments
+* :meth:`Field.encode_value` is called on the value to convert it to a Python value that can be passed down,
+  implementing :attr:`Field.encoder`.
+* :meth:`Field.to_stream` writes the value to the stream
+
+Note that the two lists are not entirely reversed: individual field finalizers/initializers are always called before
+the structure finalizer/initializer.
+
 Subclassing an existing field
 =============================
 If you only need to change a field a little bit, you may be best off subclassing an existing field and changing how

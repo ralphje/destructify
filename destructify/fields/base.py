@@ -140,21 +140,9 @@ class Field:
     def has_decoder(self):
         return self.decoder is not None
 
-    def get_decoded_value(self, value, context):
-        if not self.has_decoder:
-            return value
-        else:
-            return self.decoder(context.f, value)
-
     @property
     def has_encoder(self):
         return self.encoder is not None
-
-    def get_encoded_value(self, value, context):
-        if not self.has_encoder:
-            return value
-        else:
-            return self.encoder(context.f, value)
 
     @property
     def ctype(self):
@@ -178,7 +166,7 @@ class Field:
         :param ParsingContext context: The context of this field.
         """
 
-        return self.get_decoded_value(value, context)
+        return value
 
     def get_final_value(self, value, context):
         """Returns the final value given a context. This is used by :meth:`Structure.to_stream` to retrieve the
@@ -189,7 +177,33 @@ class Field:
         :param ParsingContext context: The context of this field.
         """
 
-        return self.get_encoded_value(self.get_overridden_value(value, context), context)
+        return self.get_overridden_value(value, context)
+
+    def decode_value(self, value, context):
+        """This value is called just after the value is retrieved from :meth:`from_stream`. It should return an adjusted
+        value that is the true representation of the value
+
+        :param value: The value to retrieve the decoded value for.
+        :param ParsingContext context: The context of this field.
+        """
+
+        if not self.has_decoder:
+            return value
+        else:
+            return self.decoder(context.f, value)
+
+    def encode_value(self, value, context):
+        """This value is called just before the value is passed to :meth:`to_stream`. It should return an adjusted
+        value that is accepted by :meth:`to_stream`. This is typically used in conjunction with :attr:`encoder`.
+
+        :param value: The value to retrieve the encoded value for.
+        :param ParsingContext context: The context of this field.
+        """
+
+        if not self.has_encoder:
+            return value
+        else:
+            return self.encoder(context.f, value)
 
     def seek_start(self, stream, context, offset):
         """This is called before the field is parsed/written. It should expect the stream to be aligned to the ending

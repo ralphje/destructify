@@ -56,6 +56,10 @@ Field
 
    .. automethod:: Field.get_final_value
 
+   .. automethod:: Field.encode_value
+
+   .. automethod:: Field.decode_value
+
    .. automethod:: Field.seek_start
 
    .. automethod:: Field.seek_end
