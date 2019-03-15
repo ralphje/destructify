@@ -38,25 +38,20 @@ and can be defined on every class:
    You can check whether a default is set using the :attr:`Field.has_default` attribute. The default given a context is
    obtained by calling ``Field.get_default(context)``
 
-.. attribute:: Field.convert
+.. attribute:: Field.decoder
 
-   Using :attr:`Field.convert`, you can change the value of the field in a structure, just before the new
+   Using :attr:`Field.decoder`, you can change the value of the field in a structure, just before the new
    :class:`Structure` is created. This is useful if you, for instance, need to adjust the value in some way. This is not
-   a replacement for defining your own :class:`Field` type or for calculated fields. Rather, it complements
-   :attr:`override`, which has more use cases.
+   a replacement for defining your own :class:`Field` type or for calculated fields.
 
-   You can set it to one of the following:
-
-   * A value
-   * A callable taking a :attr:`ParsingContext.f` object and the current value of the field
+   You can set it to a callable taking a :attr:`ParsingContext.f` object and the current value of the field
 
    For instance::
 
-       Field(convert=3)
-       Field(convert=lambda c, v: c.value if v is None else v)
+       Field(decoder=lambda c, v: c.value if v is None else v)
 
-   You can check whether an convert is set using the :attr:`Field.has_convert` attribute. The convert given a context is
-   obtained by calling ``Field.get_converted_value(value, context)``. Note, however, that you probably want to call
+   You can check whether a decoder is set using the :attr:`Field.has_decoder` attribute. The convert given a context is
+   obtained by calling ``Field.get_decoded_value(value, context)``. Note, however, that you probably want to call
    :meth:`Field.get_initial_value` instead.
 
 .. attribute:: Field.override

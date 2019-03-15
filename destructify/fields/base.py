@@ -42,13 +42,13 @@ class Field:
 
     _ctype = None
 
-    def __init__(self, *, name=None, default=NOT_PROVIDED, convert=NOT_PROVIDED, override=NOT_PROVIDED,
+    def __init__(self, *, name=None, default=NOT_PROVIDED, decoder=None, override=NOT_PROVIDED,
                  offset=None, skip=None, lazy=False):
         self.bound_structure = None
 
         self.name = name
         self.default = default
-        self.convert = convert
+        self.decoder = decoder
         self.override = override
         self.offset = offset
         self.skip = skip
@@ -131,16 +131,14 @@ class Field:
         return _retrieve_property(context, self.default, special_case_str=False)
 
     @property
-    def has_convert(self):
-        return self.convert is not NOT_PROVIDED
+    def has_decoder(self):
+        return self.decoder is not None
 
-    def get_converted_value(self, value, context):
-        if not self.has_convert:
+    def get_decoded_value(self, value, context):
+        if not self.has_decoder:
             return value
-        elif callable(self.convert):
-            return self.convert(context.f, value)
         else:
-            return self.convert
+            return self.decoder(context.f, value)
 
     @property
     def has_override(self):
@@ -170,7 +168,7 @@ class Field:
         :param ParsingContext context: The context of this field.
         """
 
-        return self.get_converted_value(value, context)
+        return self.get_decoded_value(value, context)
 
     def get_final_value(self, value, context):
         """Returns the final value given a context. This is used by :meth:`Structure.to_stream` to retrieve the
