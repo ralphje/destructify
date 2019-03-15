@@ -2,7 +2,7 @@ import io
 import unittest
 
 from destructify import Structure, BitField, FixedLengthField, StructureField, MisalignedFieldError, \
-    StringField, IntegerField, BytesField, VariableLengthQuantityField, ParsingContext
+    StringField, IntegerField, BytesField, VariableLengthIntegerField, ParsingContext
 from destructify.exceptions import DefinitionError, StreamExhaustedError, WriteError
 from tests import DestructifyTestCase
 
@@ -431,21 +431,21 @@ class IntegerFieldTest(DestructifyTestCase):
 
 class VariableLengthQuantityFieldTest(DestructifyTestCase):
     def test_basic(self):
-        self.assertFieldStreamEqual(b'\x00', 0x00, VariableLengthQuantityField())
-        self.assertFieldStreamEqual(b'\x7f', 0x7f, VariableLengthQuantityField())
-        self.assertFieldStreamEqual(b'\x81\x00', 0x80, VariableLengthQuantityField())
-        self.assertFieldStreamEqual(b'\xc0\x00', 0x2000, VariableLengthQuantityField())
-        self.assertFieldStreamEqual(b'\xff\x7f', 16383, VariableLengthQuantityField())
-        self.assertFieldStreamEqual(b'\x81\x80\x00', 16384, VariableLengthQuantityField())
-        self.assertFieldStreamEqual(b'\x81\x80\x80\x00', 2097152, VariableLengthQuantityField())
-        self.assertFieldStreamEqual(b'\xff\xff\xff\x7f', 268435455, VariableLengthQuantityField())
-        self.assertFieldFromStreamEqual(b'\xff\xff\xff\x7f\x00\x00', 268435455, VariableLengthQuantityField())
-        self.assertFieldFromStreamEqual(b'\x80\x80\x7f', 0x7f, VariableLengthQuantityField())
+        self.assertFieldStreamEqual(b'\x00', 0x00, VariableLengthIntegerField())
+        self.assertFieldStreamEqual(b'\x7f', 0x7f, VariableLengthIntegerField())
+        self.assertFieldStreamEqual(b'\x81\x00', 0x80, VariableLengthIntegerField())
+        self.assertFieldStreamEqual(b'\xc0\x00', 0x2000, VariableLengthIntegerField())
+        self.assertFieldStreamEqual(b'\xff\x7f', 16383, VariableLengthIntegerField())
+        self.assertFieldStreamEqual(b'\x81\x80\x00', 16384, VariableLengthIntegerField())
+        self.assertFieldStreamEqual(b'\x81\x80\x80\x00', 2097152, VariableLengthIntegerField())
+        self.assertFieldStreamEqual(b'\xff\xff\xff\x7f', 268435455, VariableLengthIntegerField())
+        self.assertFieldFromStreamEqual(b'\xff\xff\xff\x7f\x00\x00', 268435455, VariableLengthIntegerField())
+        self.assertFieldFromStreamEqual(b'\x80\x80\x7f', 0x7f, VariableLengthIntegerField())
 
     def test_negative_value(self):
         with self.assertRaises(OverflowError):
-            self.call_field_to_stream(VariableLengthQuantityField(), -1)
+            self.call_field_to_stream(VariableLengthIntegerField(), -1)
 
     def test_stream_not_sufficient(self):
         with self.assertRaises(StreamExhaustedError):
-            self.call_field_from_stream(VariableLengthQuantityField(), b'\x81\x80\x80')
+            self.call_field_from_stream(VariableLengthIntegerField(), b'\x81\x80\x80')

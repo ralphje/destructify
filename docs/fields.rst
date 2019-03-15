@@ -30,7 +30,7 @@ called *simple idempotency*, and asserts that hte two truths are always true.
 
 In some cases, this does not hold. This is the case when different inputs converge to the same representation.
 
-For instance, when we consider a :class:`VariableLengthQuantityField`, the byte
+For instance, when we consider a :class:`VariableLengthIntegerField`, the byte
 representation of a value may be prepended with ``80`` bytes and they do not change the value of the field. So, when
 some other writer writes these pointless bytes, Destructify has to ignore them. When writing a value, Destructify will
 then opt to write the least amount of bytes possible, meaning that the byte representation differs from the value that
@@ -81,7 +81,7 @@ Take, for instance, `variable-length quantities <https://en.wikipedia.org/wiki/V
 had to be written for this documentation anyway, it is included in Destuctify, but assume we hadn't. Then you'd write
 it as follows::
 
-    class VariableLengthQuantityField(Field):
+    class VariableLengthIntegerField(Field):
         def from_stream(self, stream, context):
             result = count = 0
             while True:
@@ -118,20 +118,20 @@ Now, the only thing left is writing unittests for this. Since this field is most
 simple tests to verify it all works according to plan, You may notice that the only simple idempotency exception is
 that values may be repended with ``80`` bytes as that does not change its value::
 
-    class VariableLengthQuantityFieldTest(DestructifyTestCase):
+    class VariableLengthIntegerFieldTest(DestructifyTestCase):
         def test_basic(self):
-            self.assertFieldStreamEqual(b'\x00', 0x00, VariableLengthQuantityField())
-            self.assertFieldStreamEqual(b'\x7f', 0x7f, VariableLengthQuantityField())
-            self.assertFieldStreamEqual(b'\x81\x00', 0x80, VariableLengthQuantityField())
-            self.assertFieldFromStreamEqual(b'\x80\x80\x7f', 0x7f, VariableLengthQuantityField())
+            self.assertFieldStreamEqual(b'\x00', 0x00, VariableLengthIntegerField())
+            self.assertFieldStreamEqual(b'\x7f', 0x7f, VariableLengthIntegerField())
+            self.assertFieldStreamEqual(b'\x81\x00', 0x80, VariableLengthIntegerField())
+            self.assertFieldFromStreamEqual(b'\x80\x80\x7f', 0x7f, VariableLengthIntegerField())
 
         def test_negative_value(self):
             with self.assertRaises(OverflowError):
-                self.call_field_to_stream(VariableLengthQuantityField(), -1)
+                self.call_field_to_stream(VariableLengthIntegerField(), -1)
 
         def test_stream_not_sufficient(self):
             with self.assertRaises(StreamExhaustedError):
-                self.call_field_from_stream(VariableLengthQuantityField(), b'\x81\x80\x80')
+                self.call_field_from_stream(VariableLengthIntegerField(), b'\x81\x80\x80')
 
 Supporting length
 =================

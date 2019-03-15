@@ -21,7 +21,7 @@ significantly.
   fields will remain as subclasses.
 * New field: :class:`ConstantField`
 * New field: :class:`SwitchField`
-* New field: :class:`VariableLengthQuantityField`
+* New field: :class:`VariableLengthIntegerField`
 * Merged :class:`FixedLengthStringField` and :class:`TerminatedStringField` into :class:`StringField`
 * Renamed hook functions :meth:`Field.from_bytes` and :meth:`Field.to_bytes` to
   :meth:`BytesField.to_python` and :meth:`BytesField.from_python`, avoiding confusion with

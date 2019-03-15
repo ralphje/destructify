@@ -303,9 +303,9 @@ IntegerField
 
       Boolean indicating whether the integer is to be interpreted as a signed or unsigned integer.
 
-VariableLengthQuantityField
-===========================
-.. autoclass:: VariableLengthQuantityField
+VariableLengthIntegerField
+==========================
+.. autoclass:: VariableLengthIntegerField
 
    Implementation of a `variable-length quantity <https://en.wikipedia.org/wiki/Variable-length_quantity>`_ structure.
 

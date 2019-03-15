@@ -325,7 +325,7 @@ class IntegerField(FixedLengthField):
                 raise DefinitionError("No byte_order for %s provided" % self.full_name)
 
 
-class VariableLengthQuantityField(Field):
+class VariableLengthIntegerField(Field):
     def from_stream(self, stream, context):
         result = 0
         count = 0
