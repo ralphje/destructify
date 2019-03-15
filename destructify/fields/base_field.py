@@ -198,8 +198,13 @@ class EnumField(BaseFieldMixin, Field):
         return self.enum(value), length
 
     def to_stream(self, stream, value, context=None):
-        if hasattr(value, 'value'):
+        if isinstance(value, self.enum):
             value = value.value
+        elif isinstance(value, str):
+            try:
+                value = self.enum[value].value
+            except KeyError:
+                pass
         return self.base_field.to_stream(stream, value, context)
 
 

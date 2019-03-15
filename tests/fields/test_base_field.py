@@ -184,6 +184,17 @@ class EnumFieldTest(DestructifyTestCase):
 
         self.assertEqual(b"\x01", bytes(EnumStructure()))
 
+    def test_obtain_value(self):
+        class En(enum.Enum):
+            TEST = b'b'
+        field = EnumField(FixedLengthField(1), En)
+
+        self.assertFieldToStreamEqual(b'b', En.TEST, field)
+        self.assertFieldToStreamEqual(b'b', 'TEST', field)
+        self.assertFieldToStreamEqual(b'b', b'b', field)
+        with self.assertRaises(TypeError):
+            self.assertFieldToStreamEqual(b'b', 'x', field)
+
 
 class SwitchFieldTest(DestructifyTestCase):
     def test_basic_switch(self):

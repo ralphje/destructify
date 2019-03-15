@@ -621,6 +621,12 @@ EnumField
 
    A field that takes the value as evaluated by the :attr:`base_field` and parses it as the provided :attr:`enum`.
 
+   While writing, the value can be of a enum member of specified :attr:`enum`, a string referencing an enum member, or
+   the value that is to be written. Note that providing a string that is not a valid enum member, will be passed to the
+   field directly.
+
+   During parsing, a value must be a valid enum member, or the enum must properly handle the case of missing members.
+
    .. attribute:: EnumField.base_field
 
       The field that returns the value that is provided to the :class:`enum.Enum`
