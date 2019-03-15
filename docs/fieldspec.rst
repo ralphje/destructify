@@ -568,6 +568,11 @@ ConditionalField
 
       The condition given a context is obtained by calling ``ConditionalField.get_condition(value, context)``.
 
+   .. attribute:: ConditionalField.fallback
+
+      The value that is used in the structure when loading from the stream and no value was present in the stream.
+      Defaults to :const:`None`, but could be any value.
+
 SwitchField
 ===========
 .. autoclass:: SwitchField

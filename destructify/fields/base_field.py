@@ -159,8 +159,9 @@ class ArrayField(BaseFieldMixin, Field):
 class ConditionalField(BaseFieldMixin, Field):
     _take_attributes_from_base = True
 
-    def __init__(self, base_field, condition, *args, **kwargs):
+    def __init__(self, base_field, condition, *args, fallback=None, **kwargs):
         self.condition = condition
+        self.fallback = fallback
         super().__init__(base_field, *args, **kwargs)
 
     def get_condition(self, context):
@@ -174,7 +175,7 @@ class ConditionalField(BaseFieldMixin, Field):
     def from_stream(self, stream, context=None):
         if self.get_condition(context):
             return self.base_field.from_stream(stream, context)
-        return None, 0
+        return self.fallback, 0
 
     def to_stream(self, stream, value, context=None):
         if self.get_condition(context):
