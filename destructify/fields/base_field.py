@@ -6,6 +6,8 @@ from .base import _retrieve_property
 
 
 class BaseFieldMixin(object):
+    _take_attributes_from_base = False
+
     def __init__(self, base_field, *args, **kwargs):
         self.base_field = base_field
 
@@ -14,6 +16,14 @@ class BaseFieldMixin(object):
         if not isinstance(base_field, Field):
             raise DefinitionError("You must initialize the base_field property of %s with a Field-type object, "
                                   "not a %s." % (self.full_name, base_field.__class__.__name__))
+
+        if self._take_attributes_from_base:
+            if self.base_field.has_default and not self.has_default:
+                self.default = self.base_field.default
+            if self.base_field.has_convert and not self.has_convert:
+                self.convert = self.base_field.convert
+            if self.base_field.has_override and not self.has_override:
+                self.override = self.base_field.override
 
     def contribute_to_class(self, cls, name):
         super().contribute_to_class(cls, name)
@@ -26,6 +36,8 @@ class BaseFieldMixin(object):
 
 
 class ConstantField(BaseFieldMixin, Field):
+    _take_attributes_from_base = True
+
     def __init__(self, value, base_field=None, *args, **kwargs):
         if base_field is None:
             if isinstance(value, bytes):
@@ -137,6 +149,8 @@ class ArrayField(BaseFieldMixin, Field):
 
 
 class ConditionalField(BaseFieldMixin, Field):
+    _take_attributes_from_base = True
+
     def __init__(self, base_field, condition, *args, **kwargs):
         self.condition = condition
         super().__init__(base_field, *args, **kwargs)
@@ -161,6 +175,8 @@ class ConditionalField(BaseFieldMixin, Field):
 
 
 class EnumField(BaseFieldMixin, Field):
+    _take_attributes_from_base = True
+
     def __init__(self, base_field, enum, *args, **kwargs):
         self.enum = enum
         super().__init__(base_field, *args, **kwargs)

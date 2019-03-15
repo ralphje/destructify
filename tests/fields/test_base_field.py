@@ -63,8 +63,12 @@ class ConstantFieldTest(DestructifyTestCase):
         with self.assertRaises(DefinitionError):
             ConstantField(0xf1)
 
+    def test_override_on_inner_field(self):
+        self.assertEqual(3, ConstantField(0xf1, base_field=IntegerField(length=1, override=3)).override)
+        self.assertEqual(3, ConstantField(0xf1, base_field=IntegerField(length=1), override=3).override)
 
-class ConditionalFieldTest(unittest.TestCase):
+
+class ConditionalFieldTest(DestructifyTestCase):
     def test_depending_on_other_field(self):
         class ConditionalStructure(Structure):
             condition = ByteField()
@@ -79,6 +83,17 @@ class ConditionalFieldTest(unittest.TestCase):
         self.assertEqual(1, cs.condition)
         self.assertEqual(1, cs.value)
         self.assertEqual(b"\x01\0\x01", bytes(cs))
+
+    def test_conditional_with_constant_full(self):
+        class ConditionalStructure(Structure):
+            condition = ByteField()
+            value = ConditionalField(ConstantField(1, IntegerField(1)), condition='condition')
+
+        self.assertStructureStreamEqual(b'\x01\x01', ConditionalStructure(condition=True, value=1))
+        self.assertStructureStreamEqual(b'\x00', ConditionalStructure(condition=False, value=None))
+        # test whether default is set properly
+        self.assertEqual(b"\x01\x01", ConditionalStructure(condition=True).to_bytes())
+        self.assertEqual(b"\x00", ConditionalStructure(condition=False).to_bytes())
 
 
 class ArrayFieldTest(DestructifyTestCase):
@@ -107,7 +122,7 @@ class ArrayFieldTest(DestructifyTestCase):
         self.assertEqual(50, len(ArrayField(IntegerField(2, 'big'), count=25)))
 
 
-class EnumFieldTest(unittest.TestCase):
+class EnumFieldTest(DestructifyTestCase):
     def test_len(self):
         self.assertEqual(1, len(EnumField(FixedLengthField(1), enum.Enum)))
 
@@ -147,6 +162,17 @@ class EnumFieldTest(unittest.TestCase):
         self.assertEqual(Flags(0), EnumStructure.from_bytes(b"\0").flag)
         self.assertEqual(Flags.R | Flags.X, EnumStructure.from_bytes(b"\x05").flag)
         self.assertEqual(b"\x07", bytes(EnumStructure(flag=Flags.X | Flags.R | Flags.W)))
+
+    def test_default_from_inner(self):
+        class Flags(enum.IntFlag):
+            R = 4
+            W = 2
+            X = 1
+
+        class EnumStructure(Structure):
+            flag = EnumField(IntegerField(1, default=Flags.X), enum=Flags)
+
+        self.assertEqual(b"\x01", bytes(EnumStructure()))
 
 
 class SwitchFieldTest(DestructifyTestCase):
