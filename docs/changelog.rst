@@ -17,6 +17,7 @@ significantly.
 * Added :attr:`Field.lazy`
 * Added :attr:`Field.convert` and :meth:`Structure.initialize`
 * Added :attr:`BytesField.terminator_handler`
+* Added :attr:`ConditionalField.fallback`
 * New field :class:`BytesField`, merging the features of :class:`FixedLengthField` and :class:`TerminatedField`. These
   fields will remain as subclasses.
 * New field: :class:`ConstantField`

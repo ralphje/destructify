@@ -2,7 +2,8 @@ import enum
 import unittest
 
 from destructify import Structure, BitField, FixedLengthField, DefinitionError, BaseFieldMixin, Field, EnumField, \
-    IntegerField, ByteField, ConditionalField, ArrayField, SwitchField, ConstantField, WrongMagicError, WriteError
+    IntegerField, ByteField, ConditionalField, ArrayField, SwitchField, ConstantField, WrongMagicError, WriteError, \
+    ParseError
 from tests import DestructifyTestCase
 
 
@@ -145,7 +146,7 @@ class EnumFieldTest(DestructifyTestCase):
         s = Struct.from_bytes(b"b")
         self.assertEqual(En.TEST, s.byte1)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ParseError):
             Struct.from_bytes(b'a')
 
     def test_writing(self):

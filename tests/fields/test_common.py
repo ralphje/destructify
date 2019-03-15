@@ -2,7 +2,7 @@ import io
 import unittest
 
 from destructify import Structure, BitField, FixedLengthField, StructureField, MisalignedFieldError, \
-    StringField, IntegerField, BytesField, VariableLengthIntegerField, ParsingContext
+    StringField, IntegerField, BytesField, VariableLengthIntegerField, ParsingContext, ParseError
 from destructify.exceptions import DefinitionError, StreamExhaustedError, WriteError
 from tests import DestructifyTestCase
 
@@ -217,11 +217,13 @@ class BitFieldTest(unittest.TestCase):
             bit2 = BitField(length=1)
             byte = FixedLengthField(length=1)
 
-        with self.assertRaises(MisalignedFieldError):
+        with self.assertRaises(ParseError) as cm:
             Struct.from_bytes(b"\xFF\xFF")
+        self.assertIsInstance(cm.exception.__context__, MisalignedFieldError)
 
-        with self.assertRaises(MisalignedFieldError):
+        with self.assertRaises(WriteError) as cm:
             self.assertEqual(b"\xc0\x33", Struct(bit1=1, bit2=1, byte=b'\x33').to_bytes())
+        self.assertIsInstance(cm.exception.__context__, MisalignedFieldError)
 
     def test_misaligned_field_with_realign(self):
         class Struct(Structure):
@@ -261,10 +263,13 @@ class BitFieldTest(unittest.TestCase):
             class Meta:
                 alignment = 2
 
-        with self.assertRaises(MisalignedFieldError):
+        with self.assertRaises(ParseError) as cm:
             Struct.from_bytes(b"\xFF\0\xFF\0\xFF")
-        with self.assertRaises(MisalignedFieldError):
+        self.assertIsInstance(cm.exception.__context__, MisalignedFieldError)
+
+        with self.assertRaises(WriteError) as cm:
             Struct(bit1=1, bit2=1, byte=b'\x33').to_bytes()
+        self.assertIsInstance(cm.exception.__context__, MisalignedFieldError)
 
     def test_field_structure_alignments(self):
         class Struct(Structure):

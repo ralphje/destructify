@@ -1,10 +1,34 @@
+import contextlib
 import inspect
 import io
 
-from destructify.exceptions import CheckError
+from destructify import WriteError, ParseError
+from destructify.exceptions import CheckError, DestructifyError
 from ..parsing import ParsingContext, FieldContext
 from ..parsing.bitstream import BitStream
 from .options import StructureOptions
+
+
+class _recapture(contextlib.AbstractContextManager):
+    """Context manager to recapture exceptions raised by methods that may not be a DestructifyError, indicating where
+    the error originated from.
+
+    If the captured error is a (subclass of) the provided exception, a new error is raised of the same type as the error
+    that was raised. If the captured error is of a different type, the argument is raised.
+    """
+
+    def __init__(self, exc):
+        self._exc = exc
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if exc_type is not None and issubclass(exc_type, Exception):
+            if not issubclass(exc_type, self._exc.__class__):
+                raise self._exc from exc_value
+            else:
+                raise exc_type(str(self._exc)) from exc_value
 
 
 class StructureBase(type):
@@ -140,7 +164,8 @@ class Structure(metaclass=StructureBase):
         # This allows referencing fields that are defined later, and absolute offset fields can simply be referenced
         for field in cls._meta.fields:
             if field.lazy and field.offset is not None and isinstance(field.offset, int):
-                offset = field.seek_start(stream, context, offset - start_offset)
+                with _recapture(ParseError("Error while seeking the start of field {}".format(field.full_name))):
+                    offset = field.seek_start(stream, context, offset - start_offset)
                 context.fields[field.name] = FieldContext(context,
                                                           parsed=True, offset=offset, length=None,
                                                           stream=stream, field=field, lazy=True)
@@ -149,7 +174,8 @@ class Structure(metaclass=StructureBase):
 
         # Now do all the fields, this includes all already resolved fields.
         for field in cls._meta.fields:
-            offset = field.seek_start(stream, context, offset - start_offset)
+            with _recapture(ParseError("Error while seeking the start of field {}".format(field.full_name))):
+                offset = field.seek_start(stream, context, offset - start_offset)
 
             # check if this field has already been resolved
             # this is possible if it was a lazy field, but also required by another field
@@ -168,11 +194,13 @@ class Structure(metaclass=StructureBase):
 
                 # obtain the lazy length if we need it
                 if need_lazy_offset:
-                    lazy_offset = field.seek_end(stream, context, offset - start_offset)
+                    with _recapture(ParseError("Error while seeking the end of field {}".format(field.full_name))):
+                        lazy_offset = field.seek_end(stream, context, offset - start_offset)
 
             # if we are not a lazy field or we haven't found a lazy length while we need it, parse the field as needed
             if not field.lazy or (lazy_offset is None and need_lazy_offset):
-                result, consumed = field.from_stream(stream, context)
+                with _recapture(ParseError("Error while parsing field {}".format(field.full_name))):
+                    result, consumed = field.from_stream(stream, context)
                 context.fields[field.name] = FieldContext(context, result,
                                                           parsed=True, offset=offset, length=consumed,
                                                           stream=stream, field=field)
@@ -245,8 +273,10 @@ class Structure(metaclass=StructureBase):
 
         for field in self._meta.fields:
             value = context.fields[field.name].value
-            offset = field.seek_start(stream, context, offset - start_offset)
-            written = field.to_stream(stream, value, context)
+            with _recapture(WriteError("Error while seeking start of field {}".format(field.full_name))):
+                offset = field.seek_start(stream, context, offset - start_offset)
+            with _recapture(WriteError("Error while writing field {}".format(field.full_name))):
+                written = field.to_stream(stream, value, context)
             context.fields[field.name] = FieldContext(context, value,
                                                       parsed=True, offset=offset, length=written, stream=stream,
                                                       field=field)
