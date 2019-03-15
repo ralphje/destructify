@@ -462,7 +462,15 @@ StructureField
    .. attribute:: StructureField.length
 
       The length of this structure. This allows you to limit the structure's length. This is particularly useful when
-      you have a :class:`Structure` that contains an unbounded read.
+      you have a :class:`Structure` that contains an unbounded read, but the encapsulating structure limits this.
+
+      * A callable with zero arguments
+      * A callable taking a :attr:`ParsingContext.f` object
+      * A string that represents the field name that contains the size
+      * An integer
+
+      When specified using a string, this field does *not* override the value of the referenced field due to
+      complications in calculating the length.
 
    Example usage::
 
@@ -504,6 +512,9 @@ ArrayField
 
       The count given a context is obtained by calling ``ArrayField.get_count(value, context)``.
 
+      When this attribute is set using a string, and the referenced field does not have an override set, the override
+      of this field will be set to take the length of the value of this field.
+
    .. attribute:: ArrayField.length
 
       This specifies the size of the field, if you do not know the count of the fields, but do know the size.
@@ -519,6 +530,9 @@ ArrayField
 
       You can specify a negative length if you want to read until the stream ends. Note that this is currently
       implemented by swallowing a :class:`StreamExhaustedError` from the base field.
+
+      When specified using a string, this field does *not* override the value of the referenced field due to
+      complications in calculating the length.
 
    Example usage::
 

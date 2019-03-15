@@ -118,6 +118,15 @@ class ArrayFieldTest(DestructifyTestCase):
         self.assertEqual([b'\x01'], s.numbers)
         self.assertEqual(b"\x01\x01", bytes(SubStructure(length=1, numbers=[b'\x01'])))
 
+    def test_count_from_other_field_override(self):
+        class TestStruct(Structure):
+            length = IntegerField(1, signed=False)
+            numbers = ArrayField(IntegerField(length=1), count='length')
+
+        self.assertEqual(b'\x02\x01\x03', bytes(TestStruct(numbers=[1, 3])))
+        # sanity check
+        self.assertStructureStreamEqual(b'\x02\x01\x03', TestStruct(length=2, numbers=[1, 3]))
+
     def test_len(self):
         self.assertEqual(50, len(ArrayField(IntegerField(2, 'big'), count=25)))
 

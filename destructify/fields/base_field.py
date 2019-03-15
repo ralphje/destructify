@@ -81,6 +81,14 @@ class ArrayField(BaseFieldMixin, Field):
 
         super().__init__(base_field, *args, **kwargs)
 
+    def initialize(self):
+        """Overrides the content of the length field if possible."""
+
+        if isinstance(self.count, str):
+            related_field = self.bound_structure._meta.get_field_by_name(self.count)
+            if not related_field.has_override:
+                related_field.override = lambda c, v: len(c[self.name])
+
     def __len__(self):
         if isinstance(self.count, int):
             return self.count * len(self.base_field)

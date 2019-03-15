@@ -50,7 +50,7 @@ class BytesField(Field):
         if isinstance(self.length, str):
             related_field = self.bound_structure._meta.get_field_by_name(self.length)
             if not related_field.has_override:
-                related_field.override = lambda s, v: len(s[self.name]) if v is None else v
+                related_field.override = lambda s, v: len(s[self.name])
 
     def get_length(self, context):
         return _retrieve_property(context, self.length)
