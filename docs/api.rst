@@ -49,6 +49,11 @@ Field
       You can call ``len`` on a field to retrieve its byte length. It can either return a value that makes sense, or it
       will raise an :exc:`ImpossibleToCalculateLengthError` when the length depends on something that is not known yet.
 
+      Some attributes may affect the length of the structure, while they do not affect the length of the field. This
+      includes attributes such as :attr:`skip`. These are automatically added when the structure sums up all fields.
+
+      If you need to override how the structure sums the length of fields, you can override ``_length_sum``.
+      You must then manually also include those offsets. This is only used by :class:`BitField`.
 
    .. automethod:: Field.initialize
 

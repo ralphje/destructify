@@ -1,8 +1,9 @@
 import io
+import math
 
 from . import Field
 from .. import Substream, ParsingContext
-from ..exceptions import DefinitionError, WriteError, WrongMagicError, StreamExhaustedError
+from ..exceptions import DefinitionError, WriteError, StreamExhaustedError, ImpossibleToCalculateLengthError
 from ..parsing.bitstream import BitStream
 from .base import _retrieve_property
 
@@ -33,7 +34,7 @@ class BytesField(Field):
         if isinstance(self.length, int) and self.length >= 0:
             return self.length
         else:
-            return super().__len__()
+            raise ImpossibleToCalculateLengthError()
 
     @property
     def ctype(self):
@@ -199,10 +200,20 @@ class BitField(FixedLengthField):
         super().__init__(length, *args, **kwargs)
 
     def __len__(self):
-        if isinstance(self.length, int):
-            return self.length / 8
+        if isinstance(self.length, int) and self.length >= 0:
+            return self.length
         else:
-            return super().__len__()
+            raise ImpossibleToCalculateLengthError()
+
+    def _length_sum(self, current_length):
+        """This function is used to calculate the length of all fields given the currently calculated length. This
+        method is called by ``len(Structure)`` and is in most cases simply an implementation of ``len(self)``.
+        """
+        res = current_length + len(self) / 8
+        if self.realign or res % 1 == 0:
+            return int(math.ceil(res)) + self._seek_length()
+        else:
+            return res + self._seek_length()
 
     @property
     def ctype(self):

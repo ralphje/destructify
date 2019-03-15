@@ -71,11 +71,9 @@ and can be defined on every class:
 
        Field(decoder=lambda c, v: v * 2, encoder=lambda c, v: v // 2)
 
-   The :attr:`Field.decoder` is used when reading from the stream. It is implemented by ``Field.get_decoded_value``,
-   and called from :meth:`Field.get_initial_value`.
+   The :attr:`Field.decoder` is used when reading from the stream. It is called from :meth:`Field.decode_value`.
 
-   :attr:`Field.encoder` is used when writing to the stream. It is implemented by ``Field.get_encoded_value``, which
-   is called by :meth:`Field.get_final_value`, but only after :attr:`Field.override` was parsed.
+   :attr:`Field.encoder` is used when writing to the stream. It is called from :meth:`Field.encode_value`
 
 .. attribute:: Field.offset
                Field.skip
@@ -95,6 +93,9 @@ and can be defined on every class:
    attributes set, will continue from the then-current position.
 
    When you set :attr:`offset` or :attr:`skip`, :attr:`StructureOptions.alignment` is ignored for this field.
+
+   The value of :attr:`skip` is automatically accounted for when using ``len(Structure)``. If :attr:`offset` is set,
+   ``len(Structure)`` is not possible anymore.
 
 .. attribute:: Field.lazy
 
@@ -344,8 +345,17 @@ BitField
 
       Thus, ignoring bits 2-0 from the first byte.
 
-   :attr:`StructureOptions.alignment` is *ignored* when two :class:`BitField` follow each other, and the previous
-   field does not specify :attr:`realign`.
+   A :class:`BitField` has some important gotchas and exceptions to normal fields:
+
+   * :attr:`StructureOptions.alignment` is *ignored* when two :class:`BitField` follow each other, and the previous
+     field does not specify :attr:`realign`.
+
+   * :attr:`Field.skip` and :attr:`Field.offset` must be specified in entire bytes, and require the field to be aligned.
+
+   * :attr:`Field.lazy` does not work, due to complexities with parsing partial bytes.
+
+   * ``len(BitField)`` returns the value in *bits* rather than in *bytes*. ``len(Structure)`` works properly, but
+     requires that all fields are aligned, including the last field.
 
 
 ConstantField

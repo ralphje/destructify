@@ -2,8 +2,7 @@ import contextlib
 import inspect
 import io
 
-from destructify import WriteError, ParseError
-from destructify.exceptions import CheckError, DestructifyError
+from ..exceptions import CheckError, DestructifyError, WriteError, ParseError, ImpossibleToCalculateLengthError
 from ..parsing import ParsingContext, FieldContext
 from ..parsing.bitstream import BitStream
 from .options import StructureOptions
@@ -61,7 +60,15 @@ class StructureBase(type):
 
     def __len__(cls):
         """Class method that allows you to do ``len(Structure)`` to retrieve the size of a :class:`Structure`."""
-        return sum((len(f) for f in cls._meta.fields)) if hasattr(cls, '_meta') else 0
+        if not hasattr(cls, '_meta'):
+            return 0
+        total = 0
+        for f in cls._meta.fields:
+            total = f._length_sum(total)
+        try:
+            return total.__index__()
+        except AttributeError:
+            raise ImpossibleToCalculateLengthError()
 
     def add_to_class(cls, name, value):
         # We should call the contribute_to_class method only if it's bound

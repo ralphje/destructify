@@ -64,12 +64,35 @@ class Field:
             return self.bound_structure._meta.structure_name + "." + self.name
         return self.name
 
+    def _seek_length(self):
+        """The length of the seek for this field."""
+        if self.offset is not None:
+            raise ImpossibleToCalculateLengthError()
+
+        if self.skip is not None:
+            if isinstance(self.skip, int):
+                return self.skip
+            else:
+                raise ImpossibleToCalculateLengthError()
+        return 0
+
     def __len__(self):
         """You can call :const:`len` on a field to retrieve its byte length. It can either return a value that makes
         sense, or it will raise an :exc:`ImpossibleToCalculateLengthError` when the length depends on something that
         is not known yet.
         """
         raise ImpossibleToCalculateLengthError()
+
+    def _length_sum(self, current_length):
+        """This function is used to calculate the length of all fields given the currently calculated length. This
+        method is called by ``len(Structure)`` and is in most cases simply an implementation of ``len(self)``.
+
+        This function primarily exists to implement :class:`BitField`.
+        """
+        try:
+            return current_length.__index__() + self._seek_length() + len(self)
+        except AttributeError:
+            raise ImpossibleToCalculateLengthError()
 
     def initialize(self):
         """Hook that is called after all fields on a structure are loaded, so some additional multi-field things can

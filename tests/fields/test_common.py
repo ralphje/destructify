@@ -2,7 +2,8 @@ import io
 import unittest
 
 from destructify import Structure, BitField, FixedLengthField, StructureField, MisalignedFieldError, \
-    StringField, IntegerField, BytesField, VariableLengthIntegerField, ParsingContext, ParseError
+    StringField, IntegerField, BytesField, VariableLengthIntegerField, ParsingContext, ParseError, \
+    ImpossibleToCalculateLengthError
 from destructify.exceptions import DefinitionError, StreamExhaustedError, WriteError
 from tests import DestructifyTestCase
 
@@ -24,6 +25,11 @@ class BytesFieldTestCase(DestructifyTestCase):
             BytesField(terminator_handler='asdf', terminator=b'\0')
         with self.assertRaises(DefinitionError):
             BytesField(terminator_handler='until', length=3)
+
+    def test_len(self):
+        self.assertEqual(3, len(BytesField(length=3)))
+
+        self.assertEqual(6, BytesField(length=3, skip=3)._length_sum(0))
 
     def test_length(self):
         self.assertFieldStreamEqual(b"abc", b"abc", BytesField(length=3))
@@ -286,6 +292,41 @@ class BitFieldTest(unittest.TestCase):
         self.assertEqual(b'\xFF', s.byte)
 
         self.assertEqual(b"\x80\0\x33\0\x80", Struct(bit1=1, bit2=1, byte=b'\x33').to_bytes())
+
+    def test_length(self):
+        class Struct(Structure):
+            bit1 = BitField(length=3)
+            bit2 = BitField(length=5)
+
+        self.assertEqual(1, len(Struct))
+
+    def test_length_realigned(self):
+        class Struct(Structure):
+            bit1 = BitField(length=3)
+            bit2 = BitField(length=8, realign=True)
+
+        self.assertEqual(2, len(Struct))
+
+        class Struct(Structure):
+            bit1 = BitField(length=3, realign=True)
+            bit2 = BitField(length=8)
+
+        self.assertEqual(2, len(Struct))
+
+    def test_length_misaligned(self):
+        class Struct(Structure):
+            bit1 = BitField(length=3)
+            bit2 = BitField(length=2)
+
+        with self.assertRaises(ImpossibleToCalculateLengthError):
+            len(Struct)
+
+    def test_length_with_skip(self):
+        class Struct(Structure):
+            bit1 = BitField(length=8)
+            bit2 = BitField(length=8, skip=2)
+
+        self.assertEqual(4, len(Struct))
 
 
 class StructureFieldTest(unittest.TestCase):
