@@ -1,6 +1,7 @@
 import unittest
 
-from destructify import this
+from destructify import this, Structure, IntegerField, FixedLengthField
+from tests import DestructifyTestCase
 
 
 class AttributeAccess:
@@ -10,7 +11,7 @@ class AttributeAccess:
     list = [1, 2]
 
 
-class FTest(unittest.TestCase):
+class ThisTest(unittest.TestCase):
     obj = AttributeAccess()
 
     def test_simple_access(self):
@@ -86,3 +87,12 @@ class FTest(unittest.TestCase):
         self.assertEqual(2, (+this.two)(self.obj))
         self.assertEqual(1, (abs(this.one))(self.obj))
         self.assertEqual(-2, (~this.one)(self.obj))
+
+
+class ThisStructureTest(DestructifyTestCase):
+    def test(self):
+        class TestStruct(Structure):
+            length = IntegerField(1)
+            content = FixedLengthField(this.length)
+
+        self.assertStructureStreamEqual(b"\x03ASD", TestStruct(length=3, content=b"ASD"))

@@ -119,9 +119,6 @@ class Expression:
     def __invert__(self):
         return UnaryExpression(operator.invert, self)
 
-    def __len__(self):
-        return UnaryExpression(len, self)
-
     # round, trunc, floor, ceil
 
 

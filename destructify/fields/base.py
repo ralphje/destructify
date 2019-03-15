@@ -3,6 +3,7 @@ import io
 from functools import total_ordering
 
 from destructify.exceptions import ImpossibleToCalculateLengthError, DefinitionError
+from destructify.parsing.expression import Expression
 
 
 class _NOT_PROVIDED_META(type):
@@ -23,7 +24,7 @@ def _retrieve_property(context, var, special_case_str=True):
     * Otherwise var is returned
     """
     if callable(var):
-        if len(inspect.signature(var).parameters) == 0:
+        if not isinstance(var, Expression) and len(inspect.signature(var).parameters) == 0:
             return var()
         return var(context.f)
     elif special_case_str and context is not None and isinstance(var, str):
