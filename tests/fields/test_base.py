@@ -1,6 +1,6 @@
 import unittest
 
-from destructify import Structure, IntField, StructField, DefinitionError, Field, FixedLengthField
+from destructify import Structure, IntField, StructField, DefinitionError, Field, FixedLengthField, IntegerField
 from tests import DestructifyTestCase
 
 
@@ -39,3 +39,15 @@ class FieldTest(DestructifyTestCase):
             return Struct
 
         self.assertStructureStreamEqual(b"12a\0bbb", align(4)(f1=b'12', f2=b'a', f3=b'bbb'))
+
+    def test_encoder_decoder(self):
+        class Struct(Structure):
+            field = IntegerField(1, encoder=lambda c, v: v + 1, decoder=lambda c, v: v - 1)
+
+        self.assertStructureStreamEqual(b"\x02", Struct(field=1))
+
+    def test_encoder_and_override(self):
+        class Struct(Structure):
+            field = IntegerField(1, encoder=lambda c, v: v + 1, override=lambda c, v: v + 1)
+
+        self.assertEqual(b"\x03", Struct(field=1).to_bytes())

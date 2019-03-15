@@ -1,48 +1,8 @@
 import io
 import types
 
+from destructify import NOT_PROVIDED
 from destructify.exceptions import StreamExhaustedError, UnknownDependentFieldError, MisalignedFieldError
-
-
-class FieldContext:
-    def __init__(self, context, value=None, *, parsed=False, offset=None, length=None, stream=None,
-                 field=None, lazy=False):
-        self.context = context
-        self._value = value
-        self.parsed = parsed
-        self.offset = offset
-        self.length = length
-        self.stream = stream
-        self.field = field
-        self.lazy = lazy
-
-        if self.context.capture_raw and stream is not None and length is not None and not lazy:
-            self._capture_raw(stream)
-
-    def _lazy_get(self):
-        current_offset = self.stream.tell()
-        self.stream.seek(self.offset)
-        try:
-            result = self.field.from_stream(self.stream, self.context)
-            # if the context is not yet done, we can update the field to its final value
-            if not self.context.done:
-                self._value = result[0]
-                self.length = result[1]
-                self.lazy = False
-            return result[0]
-        finally:
-            self.stream.seek(current_offset)
-
-    @property
-    def value(self):
-        if self.lazy:
-            import lazy_object_proxy
-            return lazy_object_proxy.Proxy(self._lazy_get)
-        return self._value
-
-    def _capture_raw(self, stream):
-        stream.seek(-self.length, io.SEEK_CUR)
-        self.raw = stream.read(self.length)
 
 
 class ParsingContext:
@@ -50,13 +10,13 @@ class ParsingContext:
     to contain context for the field that is being parsed.
     """
 
-    def __init__(self, *, structure=None, field_values=None, parent=None, capture_raw=False, done=False):
-        self.structure = structure
+    def __init__(self, *, parent=None, stream=None, capture_raw=False, done=False):
         self.parent = parent
+        self.stream = stream
         self.capture_raw = capture_raw
         self.done = done
 
-        self.field_values = field_values
+        self.fields = {}
         self.f = ParsingContext.F(self)
 
     class F:
@@ -85,6 +45,20 @@ class ParsingContext:
         def _root(self):
             return self.__context.root.f
 
+    def initialize_fields(self, meta, structure=None):
+        self.fields = {}
+        for field in meta.fields:
+            value = None
+            if structure and hasattr(structure, field.name):
+                value = getattr(structure, field.name)
+            self.fields[field.name] = FieldContext(self, field, value=value)
+
+    def _add_values(self, values):
+        if values:
+            for f, v in values.items():
+                self.fields[f] = FieldContext(self, None, v)
+        return self
+
     @property
     def field_values(self):
         """Represents a immutable view on **all** field values from :attr:`fields`. This is highly inefficient if you
@@ -93,15 +67,8 @@ class ParsingContext:
         This attribute is essentially only useful when constructing a new :class:`Structure` where all field values are
         needed.
 
-        Can also be assigned to, to replace all current fields with the specified values, and without additional
-        parsing information. This is only useful when constructing a new :class:`ParsingContext` or updating it.
-
         """
         return types.MappingProxyType({k: v.value for k, v in self.fields.items()})
-
-    @field_values.setter
-    def field_values(self, value):
-        self.fields = {k: FieldContext(self, v) for k, v in value.items()} if value else {}
 
     @property
     def root(self):
@@ -116,10 +83,89 @@ class ParsingContext:
         fields.
         """
 
-        if self.fields and name in self.fields:
+        if self.fields and name in self.fields and self.fields[name].has_value:
             return self.fields[name].value
-        elif self.structure and hasattr(self.structure, name):
-            return getattr(self.structure, name)
         else:
             raise UnknownDependentFieldError("Dependent field %s is not loaded yet, so can't be used." % name)
 
+
+class FieldContext:
+    """This class contains information about the parsing state of the specified field."""
+
+    def __init__(self, context, field, value=NOT_PROVIDED, *, parsed=False, offset=None, length=None, lazy=False):
+        self.context = context
+        self.field = field
+        self._value = value
+        self.parsed = parsed
+        self.offset = offset
+        self.length = length
+        self.lazy = lazy
+
+    def __repr__(self):
+        return '<%s: %s>' % (self.__class__.__name__, self)
+
+    def __str__(self):
+        values = []
+        for attr in ('field', 'parsed', 'offset', 'length'):
+            values.append("%s=%r" % (attr, getattr(self, attr)))
+        values.insert(1, ('value=%r' % self._value) if not self.lazy else 'value=(lazy)')
+        return '%s(%s)' % (self.__class__.__name__, ", ".join(values))
+
+    @property
+    def resolved(self):
+        """Returns whether the value has been resolved from/written to the stream, i.e. is not lazy anymore."""
+        return self.parsed and not self.lazy
+
+    @property
+    def has_value(self):
+        """Returns whether the value is present."""
+        return self.lazy or self.value is not NOT_PROVIDED
+
+    @property
+    def value(self):
+        """Returns the value that is to be used. May be a lazy proxy object."""
+        if self.lazy:
+            import lazy_object_proxy
+            return lazy_object_proxy.Proxy(self._lazy_get)
+        return self._value
+
+    def _lazy_get(self):
+        current_offset = self.context.stream.tell()
+        self.context.stream.seek(self.offset)
+        try:
+            result = self.field.from_stream(self.context.stream, self.context)
+            # if the context is not yet done, we can update the field to its final value
+            if not self.context.done:
+                self._value = result[0]
+                self.length = result[1]
+                self.lazy = False
+            return result[0]
+        finally:
+            self.context.stream.seek(current_offset)
+
+    def add_parse_info(self, value, offset, length, lazy=False):
+        """Call that is used when the value has been parsed. This fills all information in te structure.
+
+        :param value: The value that has been parsed.
+        :param offset: The offset of the value in the stream
+        :param length: The length of the value in the stream
+        :param lazy: Indicates whether the value is lazily loaded, i.e. the stream is not hit (value is ignored)
+        """
+        self.parsed = True
+        self._value = value
+        self.offset = offset
+        self.length = length
+        self.lazy = lazy
+
+        if self.context.capture_raw and self.context.stream is not None and length is not None and not lazy:
+            self._capture_raw(self.context.stream)
+
+    def initialize_value(self):
+        self._value = self.field.get_initial_value(self.value, self.context)
+
+    def finalize_value(self):
+        self._value = self.field.get_final_value(self.value, self.context)
+
+    def _capture_raw(self, stream):
+        stream.seek(-self.length, io.SEEK_CUR)
+        self.raw = stream.read(self.length)

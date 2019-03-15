@@ -2,17 +2,9 @@ import inspect
 import io
 from functools import total_ordering
 
+from destructify import NOT_PROVIDED
 from destructify.exceptions import ImpossibleToCalculateLengthError, DefinitionError
 from destructify.parsing.expression import Expression
-
-
-class _NOT_PROVIDED_META(type):
-    def __repr__(self):
-        return "NOT_PROVIDED"
-
-
-class NOT_PROVIDED(metaclass=_NOT_PROVIDED_META):
-    pass
 
 
 def _retrieve_property(context, var, special_case_str=True):
@@ -42,14 +34,16 @@ class Field:
 
     _ctype = None
 
-    def __init__(self, *, name=None, default=NOT_PROVIDED, decoder=None, override=NOT_PROVIDED,
+    def __init__(self, *, name=None, default=NOT_PROVIDED, override=NOT_PROVIDED,
+                 decoder=None, encoder=None,
                  offset=None, skip=None, lazy=False):
         self.bound_structure = None
 
         self.name = name
         self.default = default
-        self.decoder = decoder
         self.override = override
+        self.decoder = decoder
+        self.encoder = encoder
         self.offset = offset
         self.skip = skip
         self.lazy = lazy
@@ -131,16 +125,6 @@ class Field:
         return _retrieve_property(context, self.default, special_case_str=False)
 
     @property
-    def has_decoder(self):
-        return self.decoder is not None
-
-    def get_decoded_value(self, value, context):
-        if not self.has_decoder:
-            return value
-        else:
-            return self.decoder(context.f, value)
-
-    @property
     def has_override(self):
         return self.override is not NOT_PROVIDED
 
@@ -153,11 +137,37 @@ class Field:
             return self.override
 
     @property
+    def has_decoder(self):
+        return self.decoder is not None
+
+    def get_decoded_value(self, value, context):
+        if not self.has_decoder:
+            return value
+        else:
+            return self.decoder(context.f, value)
+
+    @property
+    def has_encoder(self):
+        return self.encoder is not None
+
+    def get_encoded_value(self, value, context):
+        if not self.has_encoder:
+            return value
+        else:
+            return self.encoder(context.f, value)
+
+    @property
     def ctype(self):
         """A friendly description of the field in the form of a C-style struct definition."""
 
         ctype = self._ctype or self.__class__.__name__
         return "{} {}".format(ctype, self.name)
+
+    @property
+    def preparsable(self):
+        """Indicates whether this field is preparsable, i.e. the field is lazy and has an absolute offset set."""
+
+        return self.lazy and self.offset is not None and isinstance(self.offset, int)
 
     def get_initial_value(self, value, context):
         """Returns the initial value given a context. This is used by :meth:`Structure.from_stream` to retrieve the
@@ -179,7 +189,7 @@ class Field:
         :param ParsingContext context: The context of this field.
         """
 
-        return self.get_overridden_value(value, context)
+        return self.get_encoded_value(self.get_overridden_value(value, context), context)
 
     def seek_start(self, stream, context, offset):
         """This is called before the field is parsed/written. It should expect the stream to be aligned to the ending

@@ -1,17 +1,19 @@
 import io
 import unittest
 
-from destructify import ParsingContext
+from destructify import ParsingContext, FieldContext
 
 
 class DestructifyTestCase(unittest.TestCase):
     def call_field_to_stream(self, field, value, *, field_values=None):
         stream = io.BytesIO()
-        field.to_stream(stream, value, ParsingContext(field_values=field_values))
+        context = ParsingContext()._add_values(field_values)
+        field.to_stream(stream, value, context)
         return stream.getvalue()
 
     def call_field_from_stream(self, field, value, *, field_values=None):
-        return field.from_stream(io.BytesIO(value), ParsingContext(field_values=field_values))
+        context = ParsingContext()._add_values(field_values)
+        return field.from_stream(io.BytesIO(value), context)
 
     def assertFieldToStreamEqual(self, expected_bytes, python, field, *, parsed_fields=None):
         self.assertEqual(expected_bytes, self.call_field_to_stream(field, python, field_values=parsed_fields))

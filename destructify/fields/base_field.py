@@ -20,10 +20,12 @@ class BaseFieldMixin(object):
         if self._take_attributes_from_base:
             if self.base_field.has_default and not self.has_default:
                 self.default = self.base_field.default
-            if self.base_field.has_decoder and not self.has_decoder:
-                self.decoder = self.base_field.decoder
             if self.base_field.has_override and not self.has_override:
                 self.override = self.base_field.override
+            if self.base_field.has_decoder and not self.has_decoder:
+                self.decoder = self.base_field.decoder
+            if self.base_field.has_encoder and not self.has_encoder:
+                self.encoder = self.base_field.encoder
 
     def contribute_to_class(self, cls, name):
         super().contribute_to_class(cls, name)

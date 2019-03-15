@@ -78,7 +78,7 @@ class Structure(metaclass=StructureBase):
 
         :param kwargs:
         """
-        context = ParsingContext(structure=self)
+        context = ParsingContext()
         for field in self._meta.fields:
             try:
                 val = kwargs.pop(field.name)
@@ -110,26 +110,23 @@ class Structure(metaclass=StructureBase):
         return self.to_bytes()
 
     @classmethod
-    def initialize(cls, values):
-        """Hook for hooking into the object just before it will be converted to a structure. This can be used to
-        modify some values of the structure just before it is being created.
+    def initialize(cls, context):
+        """This classmethod allows you to modify the :class:`ParsingContext`, just after all values were read from the
+        stream and :meth:`Field.get_initial_value` was called, but before the :class:`Structure` is created. This can
+        be used to modify some values of the structure just before it is being created.
 
-        This method complements :meth:`finalize`, but will probably see less use. You can also override :meth:`__init__`
-        to accomplish the same.
-
-        :param dict values: A dictionary of all values that have been read from the stream.
-        :return: The same dictionary, including modified values.
+        :param ParsingContext context: The context of the initializer
         """
-        return values
+        pass
 
-    def finalize(self, values):
-        """Hook for hooking into the object just before it will be converted to binary data. This can be used to
-        modify some values of the structure just before it is being written, e.g. for checksums.
+    def finalize(self, context):
+        """Function that allows for modifying the :class:`ParsingContext` just after filling the context with the
+        values obtained by :meth:`Field.get_final_value`, before it will be converted to binary data. This can be used
+        to modify some values of the structure just before it is being written, e.g. for checksums.
 
-        :param dict values: A dictionary of all values that are to be written to the stream.
-        :return: The same dictionary, including modified values.
+        :param ParsingContext context: The context of the finalizer
         """
-        return values
+        pass
 
     @classmethod
     def from_stream(cls, stream, context=None):
@@ -152,7 +149,10 @@ class Structure(metaclass=StructureBase):
             context = ParsingContext()
 
         # wrap the stream in a BitStream to enable bit-based methods
-        stream = BitStream(stream)
+        context.stream = stream = BitStream(stream)
+
+        # Fill the context with all fields from the context
+        context.initialize_fields(cls._meta)
 
         # We keep track of our starting offset, the current offset and the max offset.
         try:
@@ -163,12 +163,10 @@ class Structure(metaclass=StructureBase):
         # Resolve lazy fields that have absolute offsets first
         # This allows referencing fields that are defined later, and absolute offset fields can simply be referenced
         for field in cls._meta.fields:
-            if field.lazy and field.offset is not None and isinstance(field.offset, int):
-                with _recapture(ParseError("Error while seeking the start of field {}".format(field.full_name))):
+            if field.preparsable:
+                with _recapture(ParseError("Error while seeking the start of lazy field {}".format(field.full_name))):
                     offset = field.seek_start(stream, context, offset - start_offset)
-                context.fields[field.name] = FieldContext(context,
-                                                          parsed=True, offset=offset, length=None,
-                                                          stream=stream, field=field, lazy=True)
+                context.fields[field.name].add_parse_info(value=None, offset=offset, length=None, lazy=True)
 
         stream.seek(start_offset)
 
@@ -179,7 +177,7 @@ class Structure(metaclass=StructureBase):
 
             # check if this field has already been resolved
             # this is possible if it was a lazy field, but also required by another field
-            if field.name in context.fields and not context.fields[field.name].lazy:
+            if context.fields[field.name].resolved:
                 stream.seek(context.fields[field.name].length, io.SEEK_CUR)
                 offset += context.fields[field.name].length
                 max_offset = max(offset, max_offset)
@@ -201,35 +199,26 @@ class Structure(metaclass=StructureBase):
             if not field.lazy or (lazy_offset is None and need_lazy_offset):
                 with _recapture(ParseError("Error while parsing field {}".format(field.full_name))):
                     result, consumed = field.from_stream(stream, context)
-                context.fields[field.name] = FieldContext(context, result,
-                                                          parsed=True, offset=offset, length=consumed,
-                                                          stream=stream, field=field)
+                context.fields[field.name].add_parse_info(value=result, offset=offset, length=consumed)
                 offset += consumed
                 max_offset = max(offset, max_offset)
             else:
-                # store the lazy result, but only if we have not done this in a previous loop before.
-                # otherwise we need to update the length attribute only
-                if field.name in context.fields:
-                    context.fields[field.name].length = None if lazy_offset is None else lazy_offset - offset
-                else:
-                    context.fields[field.name] = FieldContext(context,
-                                                              parsed=True, offset=offset,
-                                                              length=None if lazy_offset is None else lazy_offset - offset,
-                                                              stream=stream, field=field, lazy=True)
+                # store the lazy result
+                context.fields[field.name].add_parse_info(value=None, offset=offset,
+                                                          length=None if lazy_offset is None else lazy_offset - offset,
+                                                          lazy=True)
 
         # Load the initial values
-        values = {}
         for field in cls._meta.fields:
-            values[field.name] = field.get_initial_value(context.fields[field.name].value, context)
+            context.fields[field.name].initialize_value()
 
-        values = cls.initialize(values)
+        cls.initialize(context)
 
         if not all((f(context.f) for f in cls._meta.checks)):
             raise CheckError("One of the checks for {} failed.".format(cls._meta.structure_name))
 
         context.done = True
-
-        return cls(**values), max_offset - start_offset
+        return cls(**context.field_values), max_offset - start_offset
 
     def to_stream(self, stream, context=None):
         """Writes the current :class:`Structure` to the provided stream. You can explicitly provide a
@@ -246,21 +235,25 @@ class Structure(metaclass=StructureBase):
         :return: The number bytes written to the stream (defined as the maximum position of the bytes that were written)
         """
         if context is None:
-            context = ParsingContext(structure=self)
+            context = ParsingContext()
 
         # wrap the stream in a BitStream to enable bit-based methods
-        stream = BitStream(stream)
+        context.stream = stream = BitStream(stream)
+
+        # Fill the context with all fields from the context
+        context.initialize_fields(self._meta, structure=self)
 
         # done in two loops to allow for finalizing
-        values = {}
         for field in self._meta.fields:
             # Resolve __wrapped__ objects
             v = getattr(self, field.name)
             if hasattr(v, '__wrapped__'):
                 v = v.__wrapped__
-            values[field.name] = field.get_final_value(v, context)
 
-        context.field_values = self.finalize(values)
+            context.fields[field.name] = FieldContext(context, field, v)
+            context.fields[field.name].finalize_value()
+
+        self.finalize(context)
 
         if not all((f(context.f) for f in self._meta.checks)):
             raise CheckError("One of the checks for {} failed.".format(self._meta.structure_name))
@@ -273,13 +266,14 @@ class Structure(metaclass=StructureBase):
 
         for field in self._meta.fields:
             value = context.fields[field.name].value
+
             with _recapture(WriteError("Error while seeking start of field {}".format(field.full_name))):
                 offset = field.seek_start(stream, context, offset - start_offset)
             with _recapture(WriteError("Error while writing field {}".format(field.full_name))):
                 written = field.to_stream(stream, value, context)
-            context.fields[field.name] = FieldContext(context, value,
-                                                      parsed=True, offset=offset, length=written, stream=stream,
-                                                      field=field)
+
+            context.fields[field.name].add_parse_info(value=value, offset=offset, length=written)
+
             offset += written
             max_offset = max(offset, max_offset)
 

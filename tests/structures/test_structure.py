@@ -49,17 +49,19 @@ class InitializeFinalizeTest(DestructifyTestCase):
         class TestStructure(Structure):
             field1 = FixedLengthField(length=3)
 
+        context = ParsingContext()
         with mock.patch.object(TestStructure, 'initialize', side_effect=lambda x: x) as mock_method:
-            TestStructure.from_bytes(b"123")
-        mock_method.assert_called_once_with({"field1": b"123"})
+            TestStructure.from_stream(io.BytesIO(b"123"), context)
+        mock_method.assert_called_once_with(context)
 
     def test_finalizer_called(self):
         class TestStructure(Structure):
             field1 = FixedLengthField(length=3)
 
+        context = ParsingContext()
         with mock.patch.object(TestStructure, 'finalize', side_effect=lambda x: x) as mock_method:
-            TestStructure(field1=b'asd').to_bytes()
-        mock_method.assert_called_once_with({"field1": b"asd"})
+            TestStructure(field1=b'asd').to_stream(io.BytesIO(), context)
+        mock_method.assert_called_once_with(context)
 
 
 class LazyTest(DestructifyTestCase):

@@ -140,6 +140,10 @@ ParsingContext
       the fields were parsed. This is typically for debugging purposes, or displaying information about parsing
       structures.
 
+   .. attribute:: ParsingContext.done
+
+      Boolean indicating whether the parsing was done.
+
    .. autoattribute:: ParsingContext.field_values
 
    When you are implementing a field yourself, you get a :class:`ParsingContext` when reading from and writing to a

@@ -38,22 +38,6 @@ and can be defined on every class:
    You can check whether a default is set using the :attr:`Field.has_default` attribute. The default given a context is
    obtained by calling ``Field.get_default(context)``
 
-.. attribute:: Field.decoder
-
-   Using :attr:`Field.decoder`, you can change the value of the field in a structure, just before the new
-   :class:`Structure` is created. This is useful if you, for instance, need to adjust the value in some way. This is not
-   a replacement for defining your own :class:`Field` type or for calculated fields.
-
-   You can set it to a callable taking a :attr:`ParsingContext.f` object and the current value of the field
-
-   For instance::
-
-       Field(decoder=lambda c, v: c.value if v is None else v)
-
-   You can check whether a decoder is set using the :attr:`Field.has_decoder` attribute. The convert given a context is
-   obtained by calling ``Field.get_decoded_value(value, context)``. Note, however, that you probably want to call
-   :meth:`Field.get_initial_value` instead.
-
 .. attribute:: Field.override
 
    Using :attr:`Field.override`, you can change the value of the field in a structure, just before it is being written to a
@@ -73,6 +57,25 @@ and can be defined on every class:
    You can check whether an override is set using the :attr:`Field.has_override` attribute. The override given a context is
    obtained by calling ``Field.get_overridden_value(value, context)``. Note, however, that you probably want to call
    :meth:`Field.get_final_value` instead.
+
+
+.. attribute:: Field.decoder
+               Field.encoder
+
+   Sometimes, a field value can be different than the value in the binary structure. This can happen, for instance, if
+   the value in the structure is off-by-one. Rather than overriding :attr:`Field.override` while writing, you can use
+   :attr:`Field.encoder` and :attr:`Field.decoder` to change the way a value is written to and read from the stream,
+   respectively.
+
+   You can set it to a callable taking a :attr:`ParsingContext.f` object and the current value of the field::
+
+       Field(decoder=lambda c, v: v * 2, encoder=lambda c, v: v // 2)
+
+   The :attr:`Field.decoder` is used when reading from the stream. It is implemented by ``Field.get_decoded_value``,
+   and called from :meth:`Field.get_initial_value`.
+
+   :attr:`Field.encoder` is used when writing to the stream. It is implemented by ``Field.get_encoded_value``, which
+   is called by :meth:`Field.get_final_value`, but only after :attr:`Field.override` was parsed.
 
 .. attribute:: Field.offset
                Field.skip
