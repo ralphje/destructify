@@ -59,22 +59,6 @@ class BytesField(Field):
         if self.length is not None:
             return stream.seek(self.get_length(context), io.SEEK_CUR)
 
-    def to_python(self, value):
-        """A hook that is called by :meth:`from_stream` to convert a given bytes object to a Python value.
-
-        The default implementation is to return the value as-is, but subclasses may choose to override this instead of
-        writing a custom :meth:`from_stream` method.
-        """
-        return value
-
-    def from_python(self, value):
-        """A hook that is called by :meth:`to_stream` to convert a given Python representation to bytes.
-
-        The default implementation is to return the value as-is, but subclasses may choose to override this instead of
-        writing a custom :meth:`to_stream` method.
-        """
-        return value
-
     def from_stream(self, stream, context):
         if self.length is None:
             return self._from_stream_terminated(stream, context)
@@ -118,44 +102,43 @@ class BytesField(Field):
         else:
             value = read
 
-        return self.to_python(value), len(read)
+        return value, len(read)
 
     def _to_stream_fixed_length(self, stream, value, context):
         length = self.get_length(context)
 
-        val = self.from_python(value)
         if self.terminator is not None:
             # We can expect the consume and include handlers here.
             if self.terminator_handler == 'consume':
-                val += self.terminator
-            elif self.terminator_handler == 'include' and not val.endswith(self.terminator) and self.strict:
+                value += self.terminator
+            elif self.terminator_handler == 'include' and not value.endswith(self.terminator) and self.strict:
                 raise WriteError("The field {} does not include its terminator.".format(self.full_name))
 
         if length < 0:
             # For negative lengths, we just write to the stream
-            return stream.write(val)
+            return stream.write(value)
 
-        if len(val) < length:
+        if len(value) < length:
             if self.padding is not None:
-                remaining = length - len(val)
+                remaining = length - len(value)
 
                 if self.strict and remaining % len(self.padding) != 0:
                     raise WriteError("The field %s must be padded, but the remaining bytes %d are not a multiple of %d." %
                                      (self.full_name, remaining, len(self.padding)))
 
                 # slicing for paddings longer than 1 byte
-                val = (val + self.padding * remaining)[:length]
+                value = (value + self.padding * remaining)[:length]
             elif self.strict:
                 raise WriteError("The contents of %s are %d long, but expecting %d." %
-                                 (self.full_name, len(val), length))
-        elif len(val) > length:
+                                 (self.full_name, len(value), length))
+        elif len(value) > length:
             if self.strict:
                 raise WriteError("The contents of %s are %d long, but expecting %d." %
-                                 (self.full_name, len(val), length))
+                                 (self.full_name, len(value), length))
 
-            val = val[:length]
+            value = value[:length]
 
-        return stream.write(val)
+        return stream.write(value)
 
     def _from_stream_terminated(self, stream, context):
         read = b""
@@ -167,7 +150,7 @@ class BytesField(Field):
                     if len(self.terminator) < self.step:
                         # we need to consume until the terminator.
                         read += stream.read(self.step - len(self.terminator))
-                    return self.to_python(read), len(read)
+                    return read, len(read)
 
             c = stream.read(self.step)
             read += c
@@ -176,29 +159,28 @@ class BytesField(Field):
                     raise StreamExhaustedError("Could not parse field %s; did not find terminator %s" %
                                                (self.name, self.terminator))
                 else:
-                    return self.to_python(read), len(read)
+                    return read, len(read)
 
             if read.endswith(self.terminator):
                 if self.terminator_handler == 'consume':
-                    return self.to_python(read[:-len(self.terminator)]), len(read)
+                    return read[:-len(self.terminator)], len(read)
                 elif self.terminator_handler == 'include':
-                    return self.to_python(read), len(read)
+                    return read, len(read)
                 elif self.terminator_handler == 'until' \
                         and not (hasattr(stream, 'peek') and len(self.terminator) <= self.step):
                     read = read[:-len(self.terminator)]
                     stream.seek(-len(self.terminator), io.SEEK_CUR)
-                    return self.to_python(read), len(read)
+                    return read, len(read)
 
     def _to_stream_terminated(self, stream, value, context):
-        val = self.from_python(value)
         if self.terminator_handler == 'consume':
-            return stream.write(val + self.terminator)
+            return stream.write(value + self.terminator)
         elif self.terminator_handler == 'include':
-            if not val.endswith(self.terminator) and self.strict:
+            if not value.endswith(self.terminator) and self.strict:
                 raise WriteError("The field {} does not include its terminator.".format(self.full_name))
-            return stream.write(val)
+            return stream.write(value)
         elif self.terminator_handler == 'until':
-            return stream.write(val)
+            return stream.write(value)
 
 
 class FixedLengthField(BytesField):
@@ -276,11 +258,12 @@ class StringField(BytesField):
         self.errors = errors
         super().__init__(*args, **kwargs)
 
-    def to_python(self, value):
-        return super().to_python(value).decode(self.encoding, self.errors)
+    def from_stream(self, stream, context):
+        result, length = super().from_stream(stream, context)
+        return result.decode(self.encoding, self.errors), length
 
-    def from_python(self, value):
-        return super().from_python(value.encode(self.encoding, self.errors))
+    def to_stream(self, stream, value, context):
+        return super().to_stream(stream, value.encode(self.encoding, self.errors), context)
 
     def contribute_to_class(self, cls, name):
         super().contribute_to_class(cls, name)
@@ -299,18 +282,18 @@ class IntegerField(FixedLengthField):
         self.signed = signed
         super().__init__(length=length, *args, **kwargs)
 
-    def to_python(self, value):
-        val = super().to_python(value)
-        return int.from_bytes(val,
-                              byteorder='big' if not self.byte_order and len(val) == 1 else self.byte_order,
-                              signed=self.signed)
+    def from_stream(self, stream, context):
+        result, length = super().from_stream(stream, context)
+        return int.from_bytes(result,
+                              byteorder='big' if not self.byte_order and len(result) == 1 else self.byte_order,
+                              signed=self.signed), length
 
     def to_stream(self, stream, value, context):
         # We can't use from_python here as we need the field's length.
         length = self.get_length(context)
-        val = self.from_python(value.to_bytes(length,
-                                              byteorder='big' if not self.byte_order and length == 1 else self.byte_order,
-                                              signed=self.signed))
+        val = value.to_bytes(length,
+                             byteorder='big' if not self.byte_order and length == 1 else self.byte_order,
+                             signed=self.signed)
         return stream.write(val)
 
     def contribute_to_class(self, cls, name):

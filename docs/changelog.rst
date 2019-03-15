@@ -24,9 +24,7 @@ significantly.
 * New field: :class:`SwitchField`
 * New field: :class:`VariableLengthIntegerField`
 * Merged :class:`FixedLengthStringField` and :class:`TerminatedStringField` into :class:`StringField`
-* Renamed hook functions :meth:`Field.from_bytes` and :meth:`Field.to_bytes` to
-  :meth:`BytesField.to_python` and :meth:`BytesField.from_python`, avoiding confusion with
-  :meth:`Structure.from_bytes` and :meth:`Structure.to_bytes`
+* Removed hook functions :meth:`Field.from_bytes` and :meth:`Field.to_bytes`
 * Removed all byte-order specific subclasses from :class:`StructField`.
 * Add option to :class:`ParsingContext` to capture the raw bytes, available in :attr:`ParsingContext.fields`
 * Add :attr:`ParsingContext.fields` for information about the parsing structure.

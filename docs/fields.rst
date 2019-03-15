@@ -48,26 +48,28 @@ Subclassing an existing field
 =============================
 If you only need to change a field a little bit, you may be best off subclassing an existing field and changing how
 it behaves. Say, for instance, we have a field that follows normal parsing rules for bytes, but requires us to read
-the result from back-to-front. We could simply subclass :class:`BytesField` and change this. Since subclassing
-:class:`BytesField` is a common occurrence, it even provides a simple hook to do this::
+the result from back-to-front. We could simply subclass :class:`BytesField` and change this::
 
     class ReversedBytesField(BytesField):
-        def to_python(value):
-            return value[::-1]
-        def from_python(value):
-            return value[::-1]
+        def from_stream(self, stream, context):
+            value, length = super().from_stream(stream, context)
+            return value[::-1], length
+        def to_stream(self, stream, value, context):
+            return super().to_stream(stream, value[::-1], context)
 
-We omitted the ``super()``-call for brevity and since we know these functions are simple hooks of :class:`BytesField`.
-If we wanted to subclass :class:`IntegerField` to return an IPAddress object instead, we should have done this::
+Note that the order of how we position the ``super()``-calls matters here: we want to read from the stream and then
+adjust the value, but we need to adjust the value before we are writing it to the stream. Another example of
+subclassing :class:`IntegerField` to return an IPAddress object instead, we should have done this::
 
     import ipaddress
     class IPAddressField(IntegerField):
         def __init__(self, *args, length=4, signed=False, **kwargs):
             super().__init__(*args, length=length, signed=signed, **kwargs)
-        def to_python(value):
-            return ipaddress.IPAddress(super().to_python(value))
-        def from_python(value):
-            return super().from_python(int(value))
+        def from_stream(self, stream, context):
+            value, length = super().from_stream(stream, context)
+            return  ipaddress.IPAddress(value), length
+        def to_stream(self, stream, value, context):
+            return super().to_stream(stream, int(value), context)
 
 You can similarly extend the behaviour of any other existing class using standard Python inheritance.
 
@@ -103,7 +105,8 @@ it as follows::
 
 As you can see, this is not that hard! We have omitted some additional checks from this example, such as that we
 have actually read 1 byte (and should raise :exc:`StreamExhaustedError` if it isn't) and verify that the value is
-positive when writing, but other than that, this field should work.
+positive when writing, but other than that, this field should work. (Check the source code of Destructify to verify how
+the field is actually implemented).
 
 In this case it is easily accomplished, but you must always make sure that the stream cursor is at the correct position
 after the :meth:`Field.to_stream` and :meth:`Field.from_stream` methods are done. Typically, this will hold::

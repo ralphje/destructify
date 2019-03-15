@@ -40,12 +40,15 @@ Field
 
    .. autoattribute:: Field.ctype
 
+   .. autoattribute:: Field.preparsable
+
    A :class:`Field` also defines the following methods:
 
    .. describe:: len(field)
 
       You can call ``len`` on a field to retrieve its byte length. It can either return a value that makes sense, or it
       will raise an :exc:`ImpossibleToCalculateLengthError` when the length depends on something that is not known yet.
+
 
    .. automethod:: Field.initialize
 

@@ -65,17 +65,18 @@ class StructField(FixedLengthField):
                 self._struct = struct.Struct(self.byte_order + self.format)
                 self.length = self._struct.size
 
-    def to_python(self, value):
+    def from_stream(self, stream, context):
+        result, length = super().from_stream(stream, context)
         if self.multibyte:
-            return self._struct.unpack(value)
-        return self._struct.unpack(value)[0]
+            return self._struct.unpack(result), length
+        return self._struct.unpack(result)[0], length
 
-    def from_python(self, value):
+    def to_stream(self, stream, value, context):
         if value is None:
             value = 0
         if self.multibyte:
-            return self._struct.pack(*value)
-        return self._struct.pack(value)
+            return super().to_stream(stream, self._struct.pack(*value), context)
+        return super().to_stream(stream, self._struct.pack(value), context)
 
 
 class SingleByteStructField(StructField):

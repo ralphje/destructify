@@ -238,11 +238,7 @@ BytesField
          including the terminator. This means that the next field will include the terminator.
 
    This class can be used trivially to extend functionality. For instance, :class:`StringField` is a subclass of this
-   field. To aid subclassing, two additional hooks are provided:
-
-   .. automethod:: BytesField.from_python
-
-   .. automethod:: BytesField.to_python
+   field.
 
 FixedLengthField
 ----------------
