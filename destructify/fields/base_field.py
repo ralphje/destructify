@@ -1,4 +1,5 @@
 import io
+from functools import partialmethod
 
 from . import Field, Substream, FixedLengthField
 from ..exceptions import DefinitionError, StreamExhaustedError, ParseError, WriteError, WrongMagicError
@@ -99,11 +100,8 @@ class ArrayField(BaseFieldMixin, Field):
         else:
             return super().__len__()
 
-    def get_count(self, context):
-        return _retrieve_property(context, self.count)
-
-    def get_length(self, context):
-        return _retrieve_property(context, self.length)
+    get_count = partialmethod(Field._get_property, 'count')
+    get_length = partialmethod(Field._get_property, 'length')
 
     def seek_end(self, stream, context, offset):
         if self.length is not None:
@@ -114,7 +112,7 @@ class ArrayField(BaseFieldMixin, Field):
         ctype = self._ctype or self.base_field.ctype.split(" ")[0]
         return "{} {}[{}]".format(ctype, self.name, "" if callable(self.count) else self.count)
 
-    def from_stream(self, stream, context=None):
+    def from_stream(self, stream, context):
         result = []
         total_consumed = 0
         if self.count:
@@ -146,7 +144,7 @@ class ArrayField(BaseFieldMixin, Field):
 
         return result, total_consumed
 
-    def to_stream(self, stream, value, context=None):
+    def to_stream(self, stream, value, context):
         if value is None:
             value = []
 
@@ -166,20 +164,19 @@ class ConditionalField(BaseFieldMixin, Field):
         self.fallback = fallback
         super().__init__(base_field, *args, **kwargs)
 
-    def get_condition(self, context):
-        return _retrieve_property(context, self.condition)
+    get_condition = partialmethod(Field._get_property, 'condition')
 
     @property
     def ctype(self):
         ctype = self._ctype or self.base_field.ctype.split(" ")[0]
         return "{} {} (conditional)".format(ctype, self.name)
 
-    def from_stream(self, stream, context=None):
+    def from_stream(self, stream, context):
         if self.get_condition(context):
             return self.base_field.from_stream(stream, context)
         return self.fallback, 0
 
-    def to_stream(self, stream, value, context=None):
+    def to_stream(self, stream, value, context):
         if self.get_condition(context):
             return self.base_field.to_stream(stream, value, context)
         return 0
@@ -195,11 +192,11 @@ class EnumField(BaseFieldMixin, Field):
     def __len__(self):
         return self.base_field.__len__()
 
-    def from_stream(self, stream, context=None):
+    def from_stream(self, stream, context):
         value, length = self.base_field.from_stream(stream, context)
         return self.enum(value), length
 
-    def to_stream(self, stream, value, context=None):
+    def to_stream(self, stream, value, context):
         if isinstance(value, self.enum):
             value = value.value
         elif isinstance(value, str):
@@ -232,14 +229,13 @@ class SwitchField(Field):
             self.other.name = name
             self.other.bound_structure = cls
 
-    def get_switch(self, context):
-        return _retrieve_property(context, self.switch)
+    get_switch = partialmethod(Field._get_property, 'switch')
 
     @property
     def ctype(self):
         return "switch {}".format(self.name)
 
-    def from_stream(self, stream, context=None):
+    def from_stream(self, stream, context):
         switch = self.get_switch(context)
         if switch in self.cases:
             return self.cases[switch].from_stream(stream, context)
@@ -247,7 +243,7 @@ class SwitchField(Field):
             return self.other.from_stream(stream, context)
         raise ParseError("The case {} is not specified for {}, and other is unset".format(switch, self.full_name))
 
-    def to_stream(self, stream, value, context=None):
+    def to_stream(self, stream, value, context):
         switch = self.get_switch(context)
         if switch in self.cases:
             return self.cases[switch].to_stream(stream, value, context)

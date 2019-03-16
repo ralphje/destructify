@@ -1,5 +1,6 @@
 import io
 import math
+from functools import partialmethod
 
 from . import Field
 from .. import Substream, ParsingContext
@@ -53,8 +54,7 @@ class BytesField(Field):
             if not related_field.has_override:
                 related_field.override = lambda s, v: len(s[self.name])
 
-    def get_length(self, context):
-        return _retrieve_property(context, self.length)
+    get_length = partialmethod(Field._get_property, 'length')
 
     def seek_end(self, stream, context, offset):
         if self.length is not None:
@@ -369,8 +369,7 @@ class StructureField(Field):
         ctype = self._ctype or self.structure._meta.object_name
         return "{} {}".format(ctype, self.name)
 
-    def get_length(self, context):
-        return _retrieve_property(context, self.length)
+    get_length = partialmethod(Field._get_property, 'length')
 
     def seek_end(self, stream, context, offset):
         if self.length is not None:

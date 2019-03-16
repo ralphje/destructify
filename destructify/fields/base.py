@@ -1,6 +1,6 @@
 import inspect
 import io
-from functools import total_ordering
+from functools import total_ordering, partialmethod
 
 from destructify import NOT_PROVIDED
 from destructify.exceptions import ImpossibleToCalculateLengthError, DefinitionError
@@ -57,6 +57,9 @@ class Field:
 
         self.creation_counter = Field.creation_counter
         Field.creation_counter += 1
+
+    def _get_property(self, variable_name, context, **kwargs):
+        return _retrieve_property(context, getattr(self, variable_name), **kwargs)
 
     @property
     def full_name(self):
