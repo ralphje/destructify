@@ -1,7 +1,7 @@
 import io
-from functools import partialmethod
+from functools import partialmethod, partial
 
-from . import Field, Substream, FixedLengthField
+from . import Field, Substream, FixedLengthField, FieldContext
 from ..exceptions import DefinitionError, StreamExhaustedError, ParseError, WriteError, WrongMagicError
 
 
@@ -65,6 +65,14 @@ class ConstantField(BaseFieldMixin, Field):
         return self.base_field.encode_to_stream(stream, value, context)
 
 
+class ArrayFieldContext(FieldContext):
+    """Context that also stores information about the individual items in the array."""
+
+    def __init__(self, *args, **kwargs):
+        self.items = []
+        super().__init__(*args, **kwargs)
+
+
 class ArrayField(BaseFieldMixin, Field):
     def __init__(self, base_field, count=None, length=None, *args, **kwargs):
         self.count = count
@@ -95,6 +103,11 @@ class ArrayField(BaseFieldMixin, Field):
         else:
             return super().__len__()
 
+    @property
+    def field_context(self):
+        """The :class:`FieldContext` that is used in the :class:`ParsingContext` for this field."""
+        return partial(ArrayFieldContext, self)
+
     get_count = partialmethod(Field._get_property, 'count')
     get_length = partialmethod(Field._get_property, 'length')
 
@@ -110,6 +123,8 @@ class ArrayField(BaseFieldMixin, Field):
     def from_stream(self, stream, context):
         result = []
         total_consumed = 0
+
+        # If count is specified, we read the specified amount of times from the stream.
         if self.count:
             count = self.get_count(context)
             for i in range(0, count):
@@ -123,8 +138,8 @@ class ArrayField(BaseFieldMixin, Field):
             field_start = stream.tell()
             if length >= 0:
                 while total_consumed < length:
-                    with Substream(stream, start=stream.tell(), stop=field_start + length) as substream:
-                        res, consumed = self.base_field.decode_from_stream(substream, context)
+                    substream = Substream(stream, stop=field_start + length)
+                    res, consumed = self.base_field.decode_from_stream(substream, context)
                     total_consumed += consumed
                     result.append(res)
             else:

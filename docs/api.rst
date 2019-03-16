@@ -157,6 +157,11 @@ ParsingContext
       Access to the parent context (useful when parsing a Structure inside a Structure). May be :const:`None` if this is
       the uppermost context.
 
+   .. attribute:: ParsingContext.flat
+
+      Indicates that the parent context should be considered part of this context as well. This allows you to reference
+      fields in both contexts transparently without the need of calling :attr:`parent`.
+
    .. autoattribute:: ParsingContext.root
 
    .. attribute:: ParsingContext.fields

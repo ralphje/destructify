@@ -10,8 +10,9 @@ class ParsingContext:
     to contain context for the field that is being parsed.
     """
 
-    def __init__(self, structure=None, *, parent=None, stream=None, capture_raw=False):
+    def __init__(self, structure=None, *, parent=None, flat=False, stream=None, capture_raw=False):
         self.parent = parent
+        self.flat = flat
         self.stream = stream
         self.capture_raw = capture_raw
         self.done = False
@@ -95,6 +96,8 @@ class ParsingContext:
 
         if self.fields and name in self.fields and self.fields[name].has_value:
             return self.fields[name].value
+        elif self.flat and self.parent is not None:
+            return self.parent[name]
         else:
             raise UnknownDependentFieldError("Dependent field %s is not loaded yet, so can't be used." % name)
 
