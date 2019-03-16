@@ -378,7 +378,7 @@ class StructureField(Field):
 
     @property
     def ctype(self):
-        ctype = self._ctype or self.structure._meta.object_name
+        ctype = self._ctype or self.structure._meta.structure_name
         return "{} {}".format(ctype, self.name)
 
     get_length = partialmethod(Field._get_property, 'length')

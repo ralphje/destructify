@@ -7,7 +7,6 @@ class StructureOptions:
 
         self.structure = None
         self.fields = []
-        self.object_name = None
         self.structure_name = None
 
         self.byte_order = None
@@ -20,9 +19,7 @@ class StructureOptions:
         setattr(cls, '_meta', self)
 
         self.structure = cls
-
-        self.object_name = cls.__name__
-        self.structure_name = self.object_name.lower()
+        self.structure_name = cls.__name__
 
         if self.meta:
             meta_attrs = self.meta.__dict__.copy()
@@ -30,7 +27,7 @@ class StructureOptions:
                 # Ignore any private attributes we don't care about.
                 if name.startswith('_'):
                     del meta_attrs[name]
-            for attr_name in ('object_name', 'structure_name', 'byte_order', 'encoding',
+            for attr_name in ('structure_name', 'byte_order', 'encoding',
                               'alignment', 'checks', 'capture_raw'):
                 if attr_name in meta_attrs:
                     setattr(self, attr_name, meta_attrs.pop(attr_name))

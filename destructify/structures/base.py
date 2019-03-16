@@ -309,7 +309,7 @@ class Structure(metaclass=StructureBase):
 
     @classmethod
     def as_cstruct(cls):
-        result = "struct {} {{\n".format(cls._meta.object_name)
+        result = "struct {} {{\n".format(cls._meta.structure_name)
         for field in cls._meta.fields:
             result += "   " + field.ctype + ";\n"
         result += "}"

@@ -219,14 +219,9 @@ The Meta attributes you define, are available in the :attr:`Structure._meta` att
 
 The following options are available:
 
-
-.. attribute:: StructureOptions.object_name
-
-   The name of the structure's definition class. Defaults to the name of your class.
-
 .. attribute:: StructureOptions.structure_name
 
-   The name of the structure. Defaults to the lowercased name of your class.
+   The name of the structure. Defaults to the class name of the structure.
 
 .. attribute:: StructureOptions.byte_order
 
