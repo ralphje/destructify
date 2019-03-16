@@ -39,7 +39,8 @@ class ParsingContext:
 
         @property
         def _(self):
-            return self.__context.parent.f
+            if self.__context.parent:
+                return self.__context.parent.f
 
         @property
         def _root(self):

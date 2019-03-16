@@ -329,7 +329,7 @@ class BitFieldTest(unittest.TestCase):
         self.assertEqual(4, len(Struct))
 
 
-class StructureFieldTest(unittest.TestCase):
+class StructureFieldTest(DestructifyTestCase):
     def test_parsing(self):
         class Struct1(Structure):
             byte1 = FixedLengthField(length=1)
@@ -339,27 +339,20 @@ class StructureFieldTest(unittest.TestCase):
             s1 = StructureField(Struct1)
             s2 = StructureField(Struct1)
 
-        s = Struct2.from_bytes(b"\x01\x02\03\x04")
-        self.assertEqual(b"\x01", s.s1.byte1)
-        self.assertEqual(b"\x02", s.s1.byte2)
-        self.assertEqual(b"\x03", s.s2.byte1)
-        self.assertEqual(b"\x04", s.s2.byte2)
+        self.assertStructureStreamEqual(b"\x01\x02\03\x04", Struct2(s1=Struct1(byte1=b"\x01", byte2=b"\x02"),
+                                                                    s2=Struct1(byte1=b"\x03", byte2=b"\x04")))
 
-    def test_writing(self):
+    def test_referencing_parent(self):
         class Struct1(Structure):
-            byte1 = FixedLengthField(length=1)
-            byte2 = FixedLengthField(length=1)
+            b = FixedLengthField(length=lambda c: c._.length, )
 
         class Struct2(Structure):
-            s1 = StructureField(Struct1)
+            length = IntegerField(length=1, override=lambda c, v: len(c.s2.b))
             s2 = StructureField(Struct1)
 
-        s = Struct2()
-        s.s1.byte1 = b"\x01"
-        s.s1.byte2 = b"\x02"
-        s.s2.byte1 = b"\x03"
-        s.s2.byte2 = b"\x04"
-        self.assertEqual(b"\x01\x02\03\x04", s.to_bytes())
+        # explicitly testing override and length, so not using assertStructureStreamEqual
+        self.assertEqual(Struct2(length=1, s2=Struct1(b=b"\x02")), Struct2.from_bytes(b"\x01\x02"))
+        self.assertEqual(b"\x01\x02", bytes(Struct2(s2=Struct1(b=b"\x02"))))
 
     def test_unlimited_substructure(self):
         class UnlimitedFixedLengthStructure(Structure):
@@ -368,10 +361,21 @@ class StructureFieldTest(unittest.TestCase):
         class UFLSStructure(Structure):
             s = StructureField(UnlimitedFixedLengthStructure, length=5)
 
-        ufls = UnlimitedFixedLengthStructure.from_bytes(b"\x01\x02\x03\x04\x05")
-        self.assertEqual(b"\x01\x02\x03\x04\x05", ufls.text)
+        # "Test UnlimitedFixedLengthStructure is unlimited"
+        ufls = UnlimitedFixedLengthStructure.from_bytes(b"\x01\x02\x03\x04\x05\x06")
+        self.assertEqual(b"\x01\x02\x03\x04\x05\x06", ufls.text)
+
+        # "Test reading from UFLSStructure is not unlimited"
         ufls = UFLSStructure.from_bytes(b"\x01\x02\x03\x04\x05\x06")
         self.assertEqual(b"\x01\x02\x03\x04\x05", ufls.s.text)
+
+        # Test reading/writing the stream
+        self.assertStructureStreamEqual(b"\x01\x02\x03\x04\x05",
+                                        UFLSStructure(s=UnlimitedFixedLengthStructure(text=b"\x01\x02\x03\x04\x05")))
+
+        # Test writing too much is not OK
+        with self.assertRaises(WriteError):
+            UFLSStructure(s=UnlimitedFixedLengthStructure(text=b"\x01\x02\x03\x04\x05\x06")).to_bytes()
 
     def test_structure_that_skips_bytes(self):
         class ShortStructure(Structure):
@@ -381,9 +385,8 @@ class StructureFieldTest(unittest.TestCase):
             s = StructureField(ShortStructure, length=5)
             text = FixedLengthField(length=3)
 
-        s = StructureThatSkips.from_bytes(b"\x01\x02\x03\x04\x05\x06\x07\x08")
-        self.assertEqual(b"\x01\x02\x03", s.s.text)
-        self.assertEqual(b"\x06\x07\x08", s.text)
+        self.assertStructureStreamEqual(b"\x01\x02\x03\x00\x00\x06\x07\x08",
+                                        StructureThatSkips(s=ShortStructure(text=b"\x01\x02\x03"), text=b"\x06\x07\x08"))
 
     def test_fieldcontext(self):
         class Struct1(Structure):
@@ -392,11 +395,21 @@ class StructureFieldTest(unittest.TestCase):
         class Struct2(Structure):
             s = StructureField(Struct1)
 
-        context = ParsingContext()
-        Struct2.from_stream(io.BytesIO(b"\0"), context)
-        self.assertIsInstance(context.fields['s'], StructureFieldContext)
-        self.assertIsInstance(context.fields['s'].subcontext, ParsingContext)
-        self.assertEqual(b"\0", context.fields['s'].subcontext.fields['byte1'].value)
+        with self.subTest("from_stream"):
+            context = ParsingContext()
+            Struct2.from_stream(io.BytesIO(b"\0"), context)
+
+            self.assertIsInstance(context.fields['s'], StructureFieldContext)
+            self.assertIsInstance(context.fields['s'].subcontext, ParsingContext)
+            self.assertEqual(b"\0", context.fields['s'].subcontext.fields['byte1'].value)
+
+        with self.subTest("to_stream"):
+            context = ParsingContext()
+            Struct2(s=Struct1(byte1=b"\0")).to_stream(io.BytesIO(), context)
+
+            self.assertIsInstance(context.fields['s'], StructureFieldContext)
+            self.assertIsInstance(context.fields['s'].subcontext, ParsingContext)
+            self.assertEqual(b"\0", context.fields['s'].subcontext.fields['byte1'].value)
 
 
 class StringFieldTest(DestructifyTestCase):

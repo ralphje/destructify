@@ -18,3 +18,10 @@ class ContextTest(DestructifyTestCase):
         self.assertEqual(9, context.f._root.foo)
         self.assertEqual(10, context.f._root.bar)
         self.assertIs(context, context.f._context)
+
+    def test_f_attribute_no_parent(self):
+        context = ParsingContext()._add_values({'x': 1})
+
+        self.assertEqual(1, context.f.x)
+        self.assertEqual(None, context.f._)
+        self.assertIs(context.f, context.f._root)

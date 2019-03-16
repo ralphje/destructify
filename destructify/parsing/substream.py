@@ -246,6 +246,10 @@ class Substream:
     def write(self, b):
         self._update_position()
         length = self._cap_amount_of_bytes(len(b))
+        if length < len(b):
+            raise IOError("Attempting to write more bytes than allowed in substream; attempting to write "
+                          "{}, only {} available.".format(len(b), length))
+
         result = self.raw.write(b[:length])
         self._position += result
         return result

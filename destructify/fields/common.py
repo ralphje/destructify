@@ -404,5 +404,21 @@ class StructureField(Field):
     def to_stream(self, stream, value, context):
         if value is None:
             value = self.structure()
-        # TODO: respect length
-        return value.to_stream(stream)
+
+        length = None
+        if self.length is not None:
+            length = self.get_length(context)
+
+        substream = Substream(stream, length=length)
+        subcontext = context.__class__(parent=context)
+
+        context.fields[self.name].promote_to_subclass(StructureFieldContext)
+        context.fields[self.name].subcontext = subcontext
+
+        written = value.to_stream(substream, subcontext)
+
+        if length is not None and written < length:
+            stream.seek(length - written, io.SEEK_CUR)
+            written = length
+
+        return written
