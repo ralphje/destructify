@@ -92,7 +92,8 @@ class ParsingContext:
 class FieldContext:
     """This class contains information about the parsing state of the specified field."""
 
-    def __init__(self, context, field, value=NOT_PROVIDED, *, parsed=False, offset=None, length=None, lazy=False):
+    def __init__(self, context, field, value=NOT_PROVIDED, *, parsed=False, offset=None, length=None, lazy=False,
+                 raw=None):
         self.context = context
         self.field = field
         self._value = value
@@ -100,6 +101,14 @@ class FieldContext:
         self.offset = offset
         self.length = length
         self.lazy = lazy
+        self.raw = raw
+
+    def promote_to_subclass(self, cls):
+        res = cls(self.context, self.field,
+                  value=self._value, parsed=self.parsed, offset=self.offset, length=self.length,
+                  lazy=self.lazy, raw=self.raw)
+        self.context.fields[self.field.name] = res
+        return res
 
     def __repr__(self):
         return '<%s: %s>' % (self.__class__.__name__, self)
@@ -140,9 +149,7 @@ class FieldContext:
                 self._value = value
                 self.length = length
                 self.lazy = False
-                return value
-            else:
-                return self.field.get_initial_value(value, self.context)
+            return value
         finally:
             self.context.stream.seek(current_offset)
 
@@ -167,8 +174,7 @@ class FieldContext:
             self._capture_raw(self.context.stream)
 
     def initialize_value(self):
-        if self.has_value:
-            self._value = self.field.get_initial_value(self.value, self.context)
+        self._value = self.field.get_initial_value(self.value, self.context)
 
     def finalize_value(self):
         self._value = self.field.get_final_value(self.value, self.context)

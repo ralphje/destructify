@@ -3,7 +3,7 @@ import unittest
 
 from destructify import Structure, BitField, FixedLengthField, StructureField, MisalignedFieldError, \
     StringField, IntegerField, BytesField, VariableLengthIntegerField, ParsingContext, ParseError, \
-    ImpossibleToCalculateLengthError
+    ImpossibleToCalculateLengthError, StructureFieldContext
 from destructify.exceptions import DefinitionError, StreamExhaustedError, WriteError
 from tests import DestructifyTestCase
 
@@ -384,6 +384,19 @@ class StructureFieldTest(unittest.TestCase):
         s = StructureThatSkips.from_bytes(b"\x01\x02\x03\x04\x05\x06\x07\x08")
         self.assertEqual(b"\x01\x02\x03", s.s.text)
         self.assertEqual(b"\x06\x07\x08", s.text)
+
+    def test_fieldcontext(self):
+        class Struct1(Structure):
+            byte1 = FixedLengthField(length=1)
+
+        class Struct2(Structure):
+            s = StructureField(Struct1)
+
+        context = ParsingContext()
+        Struct2.from_stream(io.BytesIO(b"\0"), context)
+        self.assertIsInstance(context.fields['s'], StructureFieldContext)
+        self.assertIsInstance(context.fields['s'].subcontext, ParsingContext)
+        self.assertEqual(b"\0", context.fields['s'].subcontext.fields['byte1'].value)
 
 
 class StringFieldTest(DestructifyTestCase):

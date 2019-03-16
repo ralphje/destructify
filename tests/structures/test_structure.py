@@ -25,7 +25,7 @@ class StructureParsingTest(DestructifyTestCase):
 
         TestStructure.from_stream(io.BytesIO(b"abcdef"), context)
 
-        self.assertEqual(False, hasattr(context.fields['field1'], 'raw'))
+        self.assertEqual(None, context.fields['field1'].raw)
 
 
 class ChecksTest(DestructifyTestCase):

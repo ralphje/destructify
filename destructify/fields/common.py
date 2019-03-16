@@ -3,10 +3,9 @@ import math
 from functools import partialmethod
 
 from . import Field
-from .. import Substream, ParsingContext
+from .. import Substream, ParsingContext, FieldContext
 from ..exceptions import DefinitionError, WriteError, StreamExhaustedError, ImpossibleToCalculateLengthError
 from ..parsing.bitstream import BitStream
-from .base import _retrieve_property
 
 
 class BytesField(Field):
@@ -348,6 +347,14 @@ class VariableLengthIntegerField(Field):
         return stream.write(bytes(result))
 
 
+class StructureFieldContext(FieldContext):
+    """Context that also stores the context that is used while parsing the field."""
+
+    def __init__(self, *args, **kwargs):
+        self.subcontext = None
+        super().__init__(*args, **kwargs)
+
+
 class StructureField(Field):
     def __init__(self, structure, *args, length=None, **kwargs):
         self.structure = structure
@@ -380,14 +387,18 @@ class StructureField(Field):
         if self.length is not None:
             length = self.get_length(context)
 
-        with Substream(stream,
-                       start=stream.tell(),
-                       stop=stream.tell() + length if length is not None else None) as substream:
-            res, consumed = self.structure.from_stream(substream, context=ParsingContext(parent=context))
+        substream = Substream(stream, length=length)
+        subcontext = context.__class__(parent=context)
+
+        context.fields[self.name].promote_to_subclass(StructureFieldContext)
+        context.fields[self.name].subcontext = subcontext
+
+        res, consumed = self.structure.from_stream(substream, context=subcontext)
 
         if length is not None and consumed < length:
             stream.seek(length - consumed, io.SEEK_CUR)
             consumed = length
+
         return res, consumed
 
     def to_stream(self, stream, value, context):
