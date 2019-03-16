@@ -333,3 +333,19 @@ class Field:
         """
 
         raise NotImplementedError()
+
+    def decode_from_stream(self, stream, context):
+        """Shortcut method to calling :meth:`from_stream` and :meth:`decode_value` in succession. Not intended to
+        be overridden.
+        """
+
+        value, consumed = self.from_stream(stream, context)
+        return self.decode_value(value, context), consumed
+
+    def encode_to_stream(self, stream, value, context):
+        """Shortcut method to calling :meth:`encode_value` and :meth:`to_stream` in succession. Not intended to
+        be overridden.
+        """
+
+        return self.to_stream(stream, self.encode_value(value, context), context)
+

@@ -492,6 +492,9 @@ StructureField
        >>> s.bar.foo
        b'hello world'
 
+   This field uses a different :class:`FieldContext`, that also gives you access to the :class:`ParsingContext` of
+   the substructure in :attr:`StructureFieldContext.subcontext`.
+
 ArrayField
 ==========
 

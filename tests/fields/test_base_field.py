@@ -68,6 +68,12 @@ class ConstantFieldTest(DestructifyTestCase):
         self.assertEqual(3, ConstantField(0xf1, base_field=IntegerField(length=1, override=3)).override)
         self.assertEqual(3, ConstantField(0xf1, base_field=IntegerField(length=1), override=3).override)
 
+    def test_encode_on_inner_field(self):
+        self.assertFieldStreamEqual(
+            b'\x24', 0x12,
+            ConstantField(0x12, base_field=IntegerField(length=1, encoder=lambda x: x+0x12, decoder=lambda x: x-0x12))
+         )
+
 
 class ConditionalFieldTest(DestructifyTestCase):
     def test_depending_on_other_field(self):
@@ -95,6 +101,11 @@ class ConditionalFieldTest(DestructifyTestCase):
         # test whether default is set properly
         self.assertEqual(b"\x01\x01", ConditionalStructure(condition=True).to_bytes())
         self.assertEqual(b"\x00", ConditionalStructure(condition=False).to_bytes())
+
+    def test_conditional_field_encoder(self):
+        self.assertFieldStreamEqual(b'\x11', 0x01,
+                                    ConditionalField(IntegerField(1, encoder=lambda x: x+0x10, decoder=lambda x: x-0x10),
+                                                     condition=True))
 
 
 class ArrayFieldTest(DestructifyTestCase):

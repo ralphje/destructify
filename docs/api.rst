@@ -70,17 +70,21 @@ Field
 
    .. automethod:: Field.get_final_value
 
-   .. automethod:: Field.encode_value
-
-   .. automethod:: Field.decode_value
-
    .. automethod:: Field.seek_start
 
    .. automethod:: Field.seek_end
 
+   .. automethod:: Field.decode_value
+
+   .. automethod:: Field.encode_value
+
    .. automethod:: Field.from_stream
 
    .. automethod:: Field.to_stream
+
+   .. automethod:: Field.decode_from_stream
+
+   .. automethod:: Field.encode_to_stream
 
 ParsingContext
 ==============

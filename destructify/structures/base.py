@@ -216,9 +216,8 @@ class Structure(metaclass=StructureBase):
             # if we are not a lazy field or we haven't found a lazy length while we need it, parse the field as needed
             if not field.lazy or (lazy_offset is None and need_lazy_offset):
                 with _recapture(ParseError("Error while parsing field {}".format(field.full_name))):
-                    result, consumed = field.from_stream(stream, context)
-                context.fields[field.name].add_parse_info(value=field.decode_value(result, context),
-                                                          offset=offset, length=consumed)
+                    result, consumed = field.decode_from_stream(stream, context)
+                context.fields[field.name].add_parse_info(value=result, offset=offset, length=consumed)
                 offset += consumed
                 max_offset = max(offset, max_offset)
             else:
@@ -283,14 +282,12 @@ class Structure(metaclass=StructureBase):
             start_offset = max_offset = offset = 0
 
         for field in self._meta.fields:
-            value = field.encode_value(context.fields[field.name].value, context)
-
             with _recapture(WriteError("Error while seeking start of field {}".format(field.full_name))):
                 offset = field.seek_start(stream, context, offset - start_offset)
             with _recapture(WriteError("Error while writing field {}".format(field.full_name))):
-                written = field.to_stream(stream, value, context)
+                written = field.encode_to_stream(stream, context.fields[field.name].value, context)
 
-            context.fields[field.name].add_parse_info(value=value, offset=offset, length=written)
+            context.fields[field.name].add_parse_info(offset=offset, length=written)
 
             offset += written
             max_offset = max(offset, max_offset)

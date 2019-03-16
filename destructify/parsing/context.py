@@ -152,8 +152,7 @@ class FieldContext:
         current_offset = self.context.stream.tell()
         self.context.stream.seek(self.offset)
         try:
-            value, length = self.field.from_stream(self.context.stream, self.context)
-            value = self.field.decode_value(value, self.context)
+            value, length = self.field.decode_from_stream(self.context.stream, self.context)
             # if the context is not yet done, we can update the field to its final value
             if not self.context.done:
                 self.add_parse_info(offset=self.offset, length=length, value=value, lazy=False)
@@ -169,11 +168,12 @@ class FieldContext:
         :param length: The length of the value in the stream
         :param lazy: Indicates whether the value is lazily loaded, i.e. the stream is not hit (value is ignored)
         """
-        if value is NOT_PROVIDED and not lazy:
+        if value is NOT_PROVIDED and not self.has_value and not lazy:
             raise ValueError("add_parse_info requires value to be set if not lazy")
 
         self.parsed = True
-        self._value = value
+        if value is not NOT_PROVIDED:
+            self._value = value
         self.offset = offset
         self.length = length
         self.lazy = lazy

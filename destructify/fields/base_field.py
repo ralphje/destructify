@@ -3,7 +3,6 @@ from functools import partialmethod
 
 from . import Field, Substream, FixedLengthField
 from ..exceptions import DefinitionError, StreamExhaustedError, ParseError, WriteError, WrongMagicError
-from .base import _retrieve_property
 
 
 class BaseFieldMixin(object):
@@ -23,10 +22,6 @@ class BaseFieldMixin(object):
                 self.default = self.base_field.default
             if self.base_field.has_override and not self.has_override:
                 self.override = self.base_field.override
-            if self.base_field.has_decoder and not self.has_decoder:
-                self.decoder = self.base_field.decoder
-            if self.base_field.has_encoder and not self.has_encoder:
-                self.encoder = self.base_field.encoder
 
     def contribute_to_class(self, cls, name):
         super().contribute_to_class(cls, name)
@@ -57,7 +52,7 @@ class ConstantField(BaseFieldMixin, Field):
         return len(self.base_field)
 
     def from_stream(self, stream, context):
-        value, length = self.base_field.from_stream(stream, context)
+        value, length = self.base_field.decode_from_stream(stream, context)
 
         if value != self.value:
             raise WrongMagicError("The constant is incorrect for {}".format(self.full_name))
@@ -67,7 +62,7 @@ class ConstantField(BaseFieldMixin, Field):
     def to_stream(self, stream, value, context):
         if value != self.value:
             raise WriteError("The constant is incorrect for {}".format(self.full_name))
-        return self.base_field.to_stream(stream, value, context)
+        return self.base_field.encode_to_stream(stream, value, context)
 
 
 class ArrayField(BaseFieldMixin, Field):
@@ -118,7 +113,7 @@ class ArrayField(BaseFieldMixin, Field):
         if self.count:
             count = self.get_count(context)
             for i in range(0, count):
-                res, consumed = self.base_field.from_stream(stream, context)
+                res, consumed = self.base_field.decode_from_stream(stream, context)
                 total_consumed += consumed
                 result.append(res)
 
@@ -129,13 +124,13 @@ class ArrayField(BaseFieldMixin, Field):
             if length >= 0:
                 while total_consumed < length:
                     with Substream(stream, start=stream.tell(), stop=field_start + length) as substream:
-                        res, consumed = self.base_field.from_stream(substream, context)
+                        res, consumed = self.base_field.decode_from_stream(substream, context)
                     total_consumed += consumed
                     result.append(res)
             else:
                 while True:
                     try:
-                        res, consumed = self.base_field.from_stream(stream, context)
+                        res, consumed = self.base_field.decode_from_stream(stream, context)
                         total_consumed += consumed
                         result.append(res)
                     except StreamExhaustedError:
@@ -152,7 +147,7 @@ class ArrayField(BaseFieldMixin, Field):
 
         total_written = 0
         for val in value:
-            total_written += self.base_field.to_stream(stream, val, context)
+            total_written += self.base_field.encode_to_stream(stream, val, context)
         return total_written
 
 
@@ -173,12 +168,12 @@ class ConditionalField(BaseFieldMixin, Field):
 
     def from_stream(self, stream, context):
         if self.get_condition(context):
-            return self.base_field.from_stream(stream, context)
+            return self.base_field.decode_from_stream(stream, context)
         return self.fallback, 0
 
     def to_stream(self, stream, value, context):
         if self.get_condition(context):
-            return self.base_field.to_stream(stream, value, context)
+            return self.base_field.encode_to_stream(stream, value, context)
         return 0
 
 
@@ -193,7 +188,7 @@ class EnumField(BaseFieldMixin, Field):
         return self.base_field.__len__()
 
     def from_stream(self, stream, context):
-        value, length = self.base_field.from_stream(stream, context)
+        value, length = self.base_field.decode_from_stream(stream, context)
         return self.enum(value), length
 
     def to_stream(self, stream, value, context):
@@ -204,7 +199,7 @@ class EnumField(BaseFieldMixin, Field):
                 value = self.enum[value].value
             except KeyError:
                 pass
-        return self.base_field.to_stream(stream, value, context)
+        return self.base_field.encode_to_stream(stream, value, context)
 
 
 class SwitchField(Field):
@@ -238,15 +233,15 @@ class SwitchField(Field):
     def from_stream(self, stream, context):
         switch = self.get_switch(context)
         if switch in self.cases:
-            return self.cases[switch].from_stream(stream, context)
+            return self.cases[switch].decode_from_stream(stream, context)
         if self.other is not None:
-            return self.other.from_stream(stream, context)
+            return self.other.decode_from_stream(stream, context)
         raise ParseError("The case {} is not specified for {}, and other is unset".format(switch, self.full_name))
 
     def to_stream(self, stream, value, context):
         switch = self.get_switch(context)
         if switch in self.cases:
-            return self.cases[switch].to_stream(stream, value, context)
+            return self.cases[switch].encode_to_stream(stream, value, context)
         if self.other is not None:
-            return self.other.to_stream(stream, value, context)
+            return self.other.encode_to_stream(stream, value, context)
         raise WriteError("The case {} is not specified for {}, and other is unset".format(switch, self.full_name))
