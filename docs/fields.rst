@@ -52,9 +52,11 @@ If you only need to modify a field a little bit, you can probably come by with d
 (see :ref:`DecodingEncoding`).
 Although these can be quite useful, they have one important limitation: you can't change the way the
 field reads and returns its value. Additionally, if you have to continuously write the same decoding/encoding-pair,
-this can become quite tiresome. Taking our previous IP address example, we could also create an entirely new
-``IPAddressField`` if we needed to, setting the default for the :attr:`IntegerField.length` and changing the return value
-of the field::
+this can become quite tiresome.
+
+In the decoding/encoding example, we wrote a field that could be used to parse IPv4 addresses. Instead of repeating
+ourselves when we need to do this multiple times, we could also create an entirely new ``IPAddressField``, setting the
+default for the :attr:`IntegerField.length` and changing the return value of the field::
 
     import ipaddress
 
@@ -98,8 +100,7 @@ field.
    already in Destructify: :class:`VariableLengthIntegerField`. You do not have to implement it yourself -- this
    merely serves as an example.
 
-
-::
+The following code could be used to implement such a field::
 
     class VariableLengthIntegerField(Field):
         def from_stream(self, stream, context):
@@ -121,8 +122,8 @@ field.
                 value >>= 7
             return stream.write(bytes(result))
 
-Though actually parsing the field may seem like a complicated thing, the actual parsing is quite easy: you define
-how the field is read/written and you are done. When writing a field, you must always take care of some other things:
+Though actually parsing the field may seem like a complicated beast, the actual parsing is quite easy: you define
+how the field is read/written and you are done. When writing a field, you must always take care of the following:
 
 * You must add in some checks to verify that everything is as you'd expect. In the above example, we have omitted these
   checks for brevity, but added a comment where you still need to add some checks, for instance, verify that we have

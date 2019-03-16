@@ -145,6 +145,14 @@ class LazyTest(DestructifyTestCase):
         self.assertIsInstance(t.field2, lazy_object_proxy.Proxy)
         self.assertNotIsInstance(t.length, lazy_object_proxy.Proxy)  # should be resolved now
 
+    def test_lazy_decoded(self):
+        class TestStructure(Structure):
+            field1 = IntegerField(length=1, decoder=lambda x: x+10, lazy=True)
+
+        t = TestStructure.from_bytes(b"\x01")
+        self.assertIsInstance(t.field1, lazy_object_proxy.Proxy)
+        self.assertEqual(11, int(t.field1))
+
 
 class OffsetTest(DestructifyTestCase):
     def test_absolute_offset(self):

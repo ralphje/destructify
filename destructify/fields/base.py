@@ -182,8 +182,10 @@ class Field:
 
     def get_initial_value(self, value, context):
         """Returns the initial value given a context. This is used by :meth:`Structure.from_stream` to retrieve the
-        value that is read from the stream. It is called after all modifications to the value have been made by
-        the :class:`Field`.
+        value that is read from the stream. It is called after all fields have been parsed, so inter-field dependencies
+        can be resolved here.
+
+        The value may be a proxy object if :attr:`lazy` is set.
 
         :param value: The value to retrieve the final value for.
         :param ParsingContext context: The context of this field.
@@ -193,8 +195,8 @@ class Field:
 
     def get_final_value(self, value, context):
         """Returns the final value given a context. This is used by :meth:`Structure.to_stream` to retrieve the
-        value that is to be written to the stream. It is called before any modifications to the value can be made by
-        the :class:`Field`.
+        value that is to be written to the stream. It is called before any fields have been processed, so inter-field
+        dependencies can be resolved here.
 
         :param value: The value to retrieve the final value for.
         :param ParsingContext context: The context of this field.

@@ -133,13 +133,16 @@ class FieldContext:
         current_offset = self.context.stream.tell()
         self.context.stream.seek(self.offset)
         try:
-            result = self.field.from_stream(self.context.stream, self.context)
+            value, length = self.field.from_stream(self.context.stream, self.context)
+            value = self.field.decode_value(value, self.context)
             # if the context is not yet done, we can update the field to its final value
             if not self.context.done:
-                self._value = result[0]
-                self.length = result[1]
+                self._value = value
+                self.length = length
                 self.lazy = False
-            return result[0]
+                return value
+            else:
+                return self.field.get_initial_value(value, self.context)
         finally:
             self.context.stream.seek(current_offset)
 
@@ -164,7 +167,8 @@ class FieldContext:
             self._capture_raw(self.context.stream)
 
     def initialize_value(self):
-        self._value = self.field.get_initial_value(self.value, self.context)
+        if self.has_value:
+            self._value = self.field.get_initial_value(self.value, self.context)
 
     def finalize_value(self):
         self._value = self.field.get_final_value(self.value, self.context)

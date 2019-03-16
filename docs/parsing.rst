@@ -1,6 +1,8 @@
 ================
 Advanced parsing
 ================
+.. module:: destructify
+
 In the previous chapter, we have covered generally how you'd define a simple structure.
 However, there is much more ground to cover there, so we'll take a deeper dive into how parsing works in Destructify.
 
@@ -107,21 +109,32 @@ functions on the :class:`Structure` to modify values, while it is being parsed.
 All these hooks can become quite complex, so the list below shows how a value is parsed from a stream into a
 :class:`Structure` and vice versa.
 
-The following functions are called on a value while reading from a stream by `Structure.from_stream`:
+The following functions are called on a value while reading from a stream by :meth:`Structure.from_stream`:
 
+* :meth:`Field.seek_start` searches the start of the value in the stream, implementing e.g. :attr:`Field.skip`
 * :meth:`Field.from_stream` reads the value from the stream and adjusts it to a Python representation
 * :meth:`Field.decode_value` is called on the value retrieved from the stream to convert it to the proper Python value,
   implementing :attr:`Field.decoder`.
-* :meth:`Field.initialize_value` is a function that is intended to adjust the value based on other fields, which is an
+* :meth:`Field.get_initial_value` is a function that is intended to adjust the value based on other fields, which is an
   empty hook function (at this point).
 * :meth:`Structure.initialize` is called to allow you for some final adjustments
 
-And the following methods are called before writing to a stream by `Structure.to_stream`:
+If the field is :attr:`Field.lazy`, parsing goes a little bit differently, as :meth:`Field.from_stream` and
+:meth:`Field.decode_value` are delayed:
 
-* :meth:`Field.finalize_value` is called on all values in the structure, implementing :attr:`Field.override`.
+* :meth:`Field.seek_start` searches the start of the value in the stream
+* :meth:`Field.seek_end` to seek the end of the value in the stream, but only if there's a next field with a
+  relative offset
+* :meth:`Field.get_initial_value` is called, passing a Proxy object
+* :meth:`Structure.initialize` is called
+
+And the following methods are called before writing to a stream by :meth:`Structure.to_stream`:
+
+* :meth:`Field.get_final_value` is called on all values in the structure, implementing :attr:`Field.override`.
 * :meth:`Structure.finalize` is called to allow you to make some final adjustments
 * :meth:`Field.encode_value` is called on the value to convert it to a Python value that can be passed down,
   implementing :attr:`Field.encoder`.
+* :meth:`Field.seek_start` searches the start of the value in the stream, implementing e.g. :attr:`Field.skip`
 * :meth:`Field.to_stream` writes the value to the stream
 
 Note that the two lists are intentionally not entirely symmetrical: individual field finalizers/initializers are in both
