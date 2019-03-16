@@ -10,7 +10,7 @@ class ParsingContext:
     to contain context for the field that is being parsed.
     """
 
-    def __init__(self, *, parent=None, stream=None, capture_raw=False):
+    def __init__(self, structure=None, *, parent=None, stream=None, capture_raw=False):
         self.parent = parent
         self.stream = stream
         self.capture_raw = capture_raw
@@ -18,6 +18,9 @@ class ParsingContext:
 
         self.fields = {}
         self.f = ParsingContext.F(self)
+
+        if structure:
+            self.initialize_from_meta(structure._meta)
 
     class F:
         """A :class:`ParsingContext.F` is a simple object that allows you to access parsed values in the context through
@@ -56,6 +59,8 @@ class ParsingContext:
             if structure and hasattr(structure, field.name):
                 value = getattr(structure, field.name)
             self.fields[field.name] = field.field_context(self, value=value)
+
+        self.capture_raw = self.capture_raw or meta.capture_raw
 
     def _add_values(self, values):
         """Method for easily adding :class:`FieldContext` objects to this context. Used only by testing."""

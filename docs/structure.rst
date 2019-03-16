@@ -266,3 +266,7 @@ The following options are available:
                ]
 
    When any of the checks fails, a :exc:`CheckError` is raised.
+
+.. attribute:: StructureOptions.capture_raw
+
+   If True, requests the :class:`ParsingContext` to capture raw bytes for all fields in the structure.
