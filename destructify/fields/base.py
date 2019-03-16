@@ -30,7 +30,7 @@ class Field:
     """A basic field is incapable of parsing or writing anything, as it is intended to be subclassed."""
 
     # These track each time a Field instance is created. Used to retain order.
-    creation_counter = 0
+    _creation_counter = 0
 
     _ctype = None
 
@@ -55,8 +55,8 @@ class Field:
             raise DefinitionError("The field {} specifies a negative skip, which is impossible."
                                   .format(self.full_name))
 
-        self.creation_counter = Field.creation_counter
-        Field.creation_counter += 1
+        self._creation_counter = Field._creation_counter
+        Field._creation_counter += 1
 
     def _get_property(self, variable_name, context, **kwargs):
         return _retrieve_property(context, getattr(self, variable_name), **kwargs)
@@ -114,13 +114,13 @@ class Field:
     def __eq__(self, other):
         # Needed for @total_ordering
         if isinstance(other, Field):
-            return self.creation_counter == other.creation_counter
+            return self._creation_counter == other._creation_counter
         return NotImplemented
 
     def __lt__(self, other):
         # This is needed because bisect does not take a comparison function.
         if isinstance(other, Field):
-            return self.creation_counter < other.creation_counter
+            return self._creation_counter < other._creation_counter
         return NotImplemented
 
     def __repr__(self):
