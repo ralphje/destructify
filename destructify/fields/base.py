@@ -213,7 +213,7 @@ class Field:
         if not self.has_decoder:
             return value
         else:
-            return self.decoder(context.f, value)
+            return self.decoder(value)
 
     def encode_value(self, value, context):
         """This value is called just before the value is passed to :meth:`to_stream`. It should return an adjusted
@@ -226,7 +226,7 @@ class Field:
         if not self.has_encoder:
             return value
         else:
-            return self.encoder(context.f, value)
+            return self.encoder(value)
 
     def seek_start(self, stream, context, offset):
         """This is called before the field is parsed/written. It should expect the stream to be aligned to the ending

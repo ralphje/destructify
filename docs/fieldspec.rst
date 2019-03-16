@@ -67,9 +67,9 @@ and can be defined on every class:
    :attr:`Field.encoder` and :attr:`Field.decoder` to change the way a value is written to and read from the stream,
    respectively.
 
-   You can set it to a callable taking a :attr:`ParsingContext.f` object and the current value of the field::
+   You can set it to a callable taking the current value of the field::
 
-       Field(decoder=lambda c, v: v * 2, encoder=lambda c, v: v // 2)
+       Field(decoder=lambda v: v * 2, encoder=lambda v: v // 2)
 
    The :attr:`Field.decoder` is used when reading from the stream. It is called from :meth:`Field.decode_value`.
 

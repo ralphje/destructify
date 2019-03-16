@@ -83,19 +83,85 @@ length? For instance, what if the length field includes its own length? This is 
 
     class DependingStructure(destructify.Structure):
         length = destructify.IntegerField(length=4, byte_order='big', signed=False,
-                                          override=lambda c, v: len(c.content) + 4 if v is None else v)
+                                          override=lambda c, v: len(c.content) + 4)
         content = destructify.BytesField(length=lambda c: c.length - 4)
 
 As you can spot, we now explicitly state using lambda functions how to get the length when we are reading the field,
 and also how to set the length when we are writing the field.
 
 As with the :attr:`BytesField.length` we defined before, the :attr:`Field.override` we have specified, receives a
-:attr:`ParsingContext.f`, but also the current value. We have added in a check to not override the value of
-``length`` when it is already set to something else, allowing us to explicitly write 'wrong' values if we need to.
+:attr:`ParsingContext.f`, but also the current value.
 
 Several fields allow you to specify advanced structures such as these, allowing you to dynamically modify how your
 structure is built. See :ref:`FieldSpec` for a full listing of all the fields and how you can specify calculated
 values.
+
+.. _ValueParsing:
+
+How a structure is read and written
+===================================
+We have now seen how :attr:`Field.override` works, but there are more ways to parse and write more advanced structures.
+You can alter the behaviour of a field by e.g. specifying :attr:`Field.decoder` and :attr:`Field.encoder`, or use
+functions on the :class:`Structure` to modify values, while it is being parsed.
+
+All these hooks can become quite complex, so the list below shows how a value is parsed from a stream into a
+:class:`Structure` and vice versa.
+
+The following functions are called on a value while reading from a stream by `Structure.from_stream`:
+
+* :meth:`Field.from_stream` reads the value from the stream and adjusts it to a Python representation
+* :meth:`Field.decode_value` is called on the value retrieved from the stream to convert it to the proper Python value,
+  implementing :attr:`Field.decoder`.
+* :meth:`Field.initialize_value` is a function that is intended to adjust the value based on other fields, which is an
+  empty hook function (at this point).
+* :meth:`Structure.initialize` is called to allow you for some final adjustments
+
+And the following methods are called before writing to a stream by `Structure.to_stream`:
+
+* :meth:`Field.finalize_value` is called on all values in the structure, implementing :attr:`Field.override`.
+* :meth:`Structure.finalize` is called to allow you to make some final adjustments
+* :meth:`Field.encode_value` is called on the value to convert it to a Python value that can be passed down,
+  implementing :attr:`Field.encoder`.
+* :meth:`Field.to_stream` writes the value to the stream
+
+Note that the two lists are intentionally not entirely symmetrical: individual field finalizers/initializers are in both
+cases called before the structure finalizer/initializer. Additionally, there's no equivalent for :attr:`Field.override`
+while reading the field, as that makes less sense. The hook is there, however.
+
+In the chapters :ref:`CustomFields` and :ref:`FieldSpec`, we'll dive deeper into overriding these methods.
+
+.. _DecodingEncoding:
+
+Decoding/encoding values
+========================
+In some cases, you only may to modify a field a little bit. For instance, the value that is written to the stream is
+off-by-one, or you wish to return a value of a different type. As this is such a common use case, you can simply write
+a :attr:`Field.decoder`/:attr:`Field.encoder` pair for post-processing the value. It sits right between the parsing of
+the field, and the writing to the structure; from the perspective of the structure, this is how the field returned the
+value, whereas the field is unaware of something happening with the value.
+
+Let's say that we are reading a date, but the value in the stream is in years since 2000, and the month is off-by-one
+in the stream. Then, we would write this::
+
+    class DateStructure(destructify.Structure):
+        year = destructify.BitField(length=7, decoder=lambda v: v + 2000, encoder=lambda v: v - 2000)
+        month = destructify.BitField(length=4, decoder=lambda v: v + 1, encoder=lambda v: v - 1)
+        day = destructify.BitField(length=5)
+
+You can even change the return type of the value. And since the callable for :attr:`Field.decoder` and
+:attr:`Field.encoder` takes a single argument, you can even simply do this::
+
+    import ipaddress
+
+    class IPStructure(destructify.Structure):
+        ip = destructify.IntegerField(length=4, byte_order='big',
+                                      decoder=ipaddress.IPv4Address, encoder=int)
+
+While doing this, you can easily break the idempotency of a field (see :ref:`CustomFields`),
+so you are recommended to treat these attributes as
+a pair; although it is not required, allowing you to create some esoteric structures.
+
+See :ref:`CustomFields` for how you can change the way a field works more significantly.
 
 Offset, skip and alignment
 ==========================
@@ -110,6 +176,7 @@ in the stream, given an integer or a field value::
     ...
     >>> OffsetStructure.from_bytes(b'\0\0\0\x10\0\0\0\x05paddingxhello')
     <OffsetStructure: OffsetStructure(offset=16, length=5, content=b'hello')>
+
 If you need to specify a offset from the end of the stream, a negative value is also possible. During writing, this is
 a little bit ambiguous, so you must be careful how you'd define this.
 

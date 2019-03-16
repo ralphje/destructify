@@ -1,3 +1,5 @@
+.. _CustomFields:
+
 =============
 Custom fields
 =============
@@ -14,24 +16,24 @@ structure. Each field is responsible for the following:
 
 Field idempotency
 =================
-To ensure consistency across all fields, the following holds true for all built-in fields and custom fields should
-attempt to adhere to these as well:
+To ensure consistency across all fields, we have chosen to define two idempotency rules that holds for all built-in
+fields. Custom fields should attempt to adhere to these as well:
 
-    When a value, that is written by a field, is read and written again by that same field, the byte representation
-    must be the same.
+.. admonition:: The idempotency of a field
 
-    When a value, that is read by a field, is written and read again by that same field, the Python representation
-    must be the same.
+   When a value, that is written by a field, is read and written again by that same field, the byte representation
+   must be the same.
 
-We call these two truths the *idempotency of a field*. In the most common case, this means that a byte and Python
-representation must be directly linked to each other. For instance, ``b'foo' == b'foo'`` holds true for a
-:class:`ByteField`, and no other representation maps to the same byte sequence or Python representation. This is
-called *simple idempotency*, and asserts that hte two truths are always true.
+   When a value, that is read by a field, is written and read again by that same field, the Python representation
+   must be the same.
+
+What does it mean? In the most simple case, the byte and Python representation are linked to each other. This means,
+for instance, that writing ``b'foo'`` to a :class:`BytesField`, will result in a ``b'foo'`` in the stream, and no other
+value has the same property.
 
 In some cases, this does not hold. This is the case when different inputs converge to the same representation.
-
-For instance, when we consider a :class:`VariableLengthIntegerField`, the byte
-representation of a value may be prepended with ``80`` bytes and they do not change the value of the field. So, when
+For instance, considering a :class:`VariableLengthIntegerField`, the byte
+representation of a value may be prepended with ``0x80`` bytes and they do not change the value of the field. So, when
 some other writer writes these pointless bytes, Destructify has to ignore them. When writing a value, Destructify will
 then opt to write the least amount of bytes possible, meaning that the byte representation differs from the value that
 was read. However, Destructify can read this value again and it will be the same Python representation.
@@ -44,73 +46,60 @@ All built-in fields will ensure that the two truths hold. If this is not possibl
 an error will be raised. Some fields allow you to specify ``strict=False``, which will disable these checks and may
 break idempotency.
 
-How a Structure is read and written
-===================================
-Before we start by creating our own fields, it is important to know how values are processed by Destructify. In the
-examples below, we'll be subclassing :meth:`Field.from_stream` and :meth:`Field.to_stream`. These methods define how
-a field reads and writes values. This is the recommended method if you are writing your own fields.
-
-However, additional hooks allow you to convert values on different levels. The list below shows where you can adjust
-the value of your structures without implementing entirely new fields.
-
-The following functions are called on a value while reading from a stream by `Structure.from_stream`:
-
-* :meth:`Field.from_stream` reads the value from the stream and adjusts it to a Python representation
-* :meth:`Field.decode_value` is called on the value retrieved from the stream to convert it to the proper Python value,
-  implementing :attr:`Field.decoder`.
-* :meth:`Field.initialize_value` is a function that is intended to adjust the value based on other fields, which is an
-  empty hook function (at this point).
-* :meth:`Structure.initialize` is called to allow you for some final adjustments
-
-And the following methods are called before writing to a stream by `Structure.to_stream`:
-
-* :meth:`Field.finalize_value` is called on all values in the structure, implementing :attr:`Field.override`.
-* :meth:`Structure.finalize` is called to allow you to make some final adjustments
-* :meth:`Field.encode_value` is called on the value to convert it to a Python value that can be passed down,
-  implementing :attr:`Field.encoder`.
-* :meth:`Field.to_stream` writes the value to the stream
-
-Note that the two lists are not entirely reversed: individual field finalizers/initializers are always called before
-the structure finalizer/initializer.
-
 Subclassing an existing field
 =============================
-If you only need to change a field a little bit, you may be best off subclassing an existing field and changing how
-it behaves. Say, for instance, we have a field that follows normal parsing rules for bytes, but requires us to read
-the result from back-to-front. We could simply subclass :class:`BytesField` and change this::
-
-    class ReversedBytesField(BytesField):
-        def from_stream(self, stream, context):
-            value, length = super().from_stream(stream, context)
-            return value[::-1], length
-        def to_stream(self, stream, value, context):
-            return super().to_stream(stream, value[::-1], context)
-
-Note that the order of how we position the ``super()``-calls matters here: we want to read from the stream and then
-adjust the value, but we need to adjust the value before we are writing it to the stream. Another example of
-subclassing :class:`IntegerField` to return an IPAddress object instead, we should have done this::
+If you only need to modify a field a little bit, you can probably come by with decoding/encoding-pairs
+(see :ref:`DecodingEncoding`).
+Although these can be quite useful, they have one important limitation: you can't change the way the
+field reads and returns its value. Additionally, if you have to continuously write the same decoding/encoding-pair,
+this can become quite tiresome. Taking our previous IP address example, we could also create an entirely new
+``IPAddressField`` if we needed to, setting the default for the :attr:`IntegerField.length` and changing the return value
+of the field::
 
     import ipaddress
+
     class IPAddressField(IntegerField):
         def __init__(self, *args, length=4, signed=False, **kwargs):
             super().__init__(*args, length=length, signed=signed, **kwargs)
+
         def from_stream(self, stream, context):
             value, length = super().from_stream(stream, context)
-            return  ipaddress.IPAddress(value), length
+            return ipaddress.IPv4Address(value), length
+
         def to_stream(self, stream, value, context):
             return super().to_stream(stream, int(value), context)
 
-You can similarly extend the behaviour of any other existing class using standard Python inheritance.
+Note how we have ordered the ``super()`` calls here: we want to read from the stream and then
+adjust the value, but we need to adjust the value before we are writing it to the stream.
+
+Overriding :meth:`Field.from_stream` and :meth:`Field.to_stream` using Python inheritance is a common occurrence.
+Although the example above is very simple, you could adjust how the field works and acts entirely. For instance, the
+:class:`BitField` is a subclass of :class:`ByteField`, though it works on bits rather than bytes.
+
+Note that there are many more functions you can override. The above example is a valid use-case, though overriding
+:meth:`Field.decode_value` and :meth:`Field.encode_value` might have been more appropriate. See :ref:`ValueParsing` for
+an overview of the methods where a value passes through to see where your use-case fits best. Also remember to read the
+documentation for :class:`Field` to see what callbacks are used for what.
 
 Writing your own field
 ======================
-However, what
-if none of the fields does what you want? Then you have to create a class inheriting from :class:`Field` and override
-:meth:`Field.from_stream` and :meth:`Field.to_stream`.
+The most complex method of changing how parsing works is by implementing your own field. You do this by inheriting from
+:class:`Field` and implementing :meth:`Field.from_stream` and :meth:`Field.to_stream`. You then have full control over
+the stream cursor, how it reads values and how it returns those.
 
-Take, for instance, `variable-length quantities <https://en.wikipedia.org/wiki/Variable-length_quantity>`_. Since this
-had to be written for this documentation anyway, it is included in Destuctify, but assume we hadn't. Then you'd write
-it as follows::
+In this example, we'll be implementing
+`variable-length quantities <https://en.wikipedia.org/wiki/Variable-length_quantity>`_. Since this field has a
+variable-length (what's in a name) and parsing is entirely different from another field, we have to implement a new
+field.
+
+.. hint::
+
+   A field implementing `variable-length quantities <https://en.wikipedia.org/wiki/Variable-length_quantity>`_ is
+   already in Destructify: :class:`VariableLengthIntegerField`. You do not have to implement it yourself -- this
+   merely serves as an example.
+
+
+::
 
     class VariableLengthIntegerField(Field):
         def from_stream(self, stream, context):
@@ -132,17 +121,79 @@ it as follows::
                 value >>= 7
             return stream.write(bytes(result))
 
-As you can see, this is not that hard! We have omitted some additional checks from this example, such as that we
-have actually read 1 byte (and should raise :exc:`StreamExhaustedError` if it isn't) and verify that the value is
-positive when writing, but other than that, this field should work. (Check the source code of Destructify to verify how
-the field is actually implemented).
+Though actually parsing the field may seem like a complicated thing, the actual parsing is quite easy: you define
+how the field is read/written and you are done. When writing a field, you must always take care of some other things:
 
-In this case it is easily accomplished, but you must always make sure that the stream cursor is at the correct position
-after the :meth:`Field.to_stream` and :meth:`Field.from_stream` methods are done. Typically, this will hold::
+* You must add in some checks to verify that everything is as you'd expect. In the above example, we have omitted these
+  checks for brevity, but added a comment where you still need to add some checks, for instance, verify that we have
+  not reached the end of the stream in :meth:`Field.from_stream` and raise a :exc:`StreamExhaustedError`.
 
-    tell_before = stream.tell()
-    result = Field.to_stream(stream, ...)   # similar for from_stream
-    tell_before + result == stream.tell()
+* You must ensure that the stream cursor is at the end of the field when you are done reading and writing. This is the
+  place where the next field continues off. This is typically true, but if you need to look-ahead this may be an
+  important gotcha.
+
+There is more to implementing a field, as the next chapters will show you, though the basics will always remain the
+same. Read the full Python API for :class:`Field` to see which callbacks are available.
+
+Supporting length
+=================
+You may have noticed that you can do ``len(Structure)`` on a structure and -- if possible -- get the byte length of
+the structure. This is actually implemented by calling ``len(field)`` on all fields in the structure. The default
+implementation of :class:`Field` is to raise an :exc:`ImpossibleToCalculateLengthError`, so that when a field does not
+specify its length, the :class:`Structure` that called will raise the same error.
+
+Therefore, you are encouraged to add a ``__len__`` method to your fields when you can tell the length of a field
+beforehand (i.e. without a context)::
+
+    class AlwaysFourBytesField(Field):
+        def __len__(self):
+            return 4
+
+Note that you must return either a positive integer or raise an error. If your field depends on another field to
+determine its length, you should raise an error: you can only implement this field if you know its value regardless
+of the parsing state.
+
+Supporting lazy read
+====================
+The attribute :attr:`Field.lazy` controls how a field is read from the stream: if it is :const:`True`, the field is not
+actually read during parsing, but only on its first access. This requires the field to know how much it needs to skip
+to find the start of the next field. This is implemented by :meth:`Field.seek_end`, which is only called in the case
+that the start of the next field must be calculated (this is not the case e.g. if the next field has an absolute
+offset).
+
+The default implementation is to check whether ``len(field)`` returns a usable result, and skips this amount of bytes.
+If the result is not usable, :const:`None` is returned, and the field is read regardless of the :attr:`Field.lazy`
+setting.
+
+However, there are cases where we can simply read a little bit of data to determine the length of the field, and then
+skip over the remainder of the field without parsing the entire field. This can be implemented by writing your own
+:meth:`Field.seek_end`, which is more efficient than reading the entire field.
+
+For instance, say that we have want to implement how UTF-8 encodes its length: if the first byte starts with ``0b0``,
+it is a single byte-value, if the first byte starts with ``0b110``, it is a two-byte value, ``0b1110`` a three-byte
+value and so forth. You could write a field like this::
+
+    class UTF8CharacterField(destructify.Field):
+        def _get_length_from_first_byte(self, value):
+            val = ord(value)
+            for length, start_bits in enumerate(0b0, 0b110, 0b1110, 0b11110, 0b111110, 0b1111110):
+                if val >> ((8 - start_bits.bit_length()) if start_bits else 7) == start_bits:
+                    return length
+            raise ParseError("Invalid start byte.")
+
+        def seek_end(self, stream, context, offset):
+            read = stream.read(1)
+            if len(read) != 1:
+                raise StreamExhaustedError()
+            return stream.seek(self._get_length_from_first_byte(read) - 1, io.SEEK_CUR)
+
+        def from_stream(self, stream, context):
+            # left as an exercise to the reader
+
+        def to_stream(self, stream, context):
+            # left as an exercise to the reader
+
+This still reads the first byte of the structure, but does not need to parse the entire structure.
 
 Testing your field
 ==================
@@ -164,21 +215,3 @@ that values may be repended with ``80`` bytes as that does not change its value:
         def test_stream_not_sufficient(self):
             with self.assertRaises(StreamExhaustedError):
                 self.call_field_from_stream(VariableLengthIntegerField(), b'\x81\x80\x80')
-
-Supporting length
-=================
-::
-
-    class DemoField(Field):
-        def __len__(self):
-            return 4
-
-Supporting lazy read
-====================
-The example we have chosen to show in this documentation, is impossible to read lazily, as the entire field must be
-parsed before the length is known. But, what if we know the length of our field? Then we can support lazy read as
-follows::
-
-    class OurField(Field):
-        def seek_end(self, stream, context, offset)
-            return stream.seek(4, io.SEEK_CUR)

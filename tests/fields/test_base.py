@@ -42,12 +42,12 @@ class FieldTest(DestructifyTestCase):
 
     def test_encoder_decoder(self):
         class Struct(Structure):
-            field = IntegerField(1, encoder=lambda c, v: v + 1, decoder=lambda c, v: v - 1)
+            field = IntegerField(1, encoder=lambda v: v + 1, decoder=lambda v: v - 1)
 
         self.assertStructureStreamEqual(b"\x02", Struct(field=1))
 
     def test_encoder_and_override(self):
         class Struct(Structure):
-            field = IntegerField(1, encoder=lambda c, v: v + 1, override=lambda c, v: v + 1)
+            field = IntegerField(1, encoder=lambda v: v + 1, override=lambda c, v: v + 1)
 
         self.assertEqual(b"\x03", Struct(field=1).to_bytes())
