@@ -159,7 +159,7 @@ class Structure(metaclass=StructureBase):
         context.stream = stream = BitStream(stream)
 
         # Fill the context with all fields from the context
-        context.initialize_fields(cls._meta)
+        context.initialize_from_meta(cls._meta)
 
         # We keep track of our starting offset, the current offset and the max offset.
         try:
@@ -218,7 +218,7 @@ class Structure(metaclass=StructureBase):
 
         # Load the initial values
         for field in cls._meta.fields:
-            context.fields[field.name].initialize_value()
+            context.fields[field.name].value = field.get_initial_value(context.fields[field.name].value, context)
 
         cls.initialize(context)
 
@@ -249,7 +249,7 @@ class Structure(metaclass=StructureBase):
         context.stream = stream = BitStream(stream)
 
         # Fill the context with all fields from the context
-        context.initialize_fields(self._meta, structure=self)
+        context.initialize_from_meta(self._meta, structure=self)
 
         # done in two loops to allow for finalizing
         for field in self._meta.fields:
@@ -258,8 +258,7 @@ class Structure(metaclass=StructureBase):
             if hasattr(v, '__wrapped__'):
                 v = v.__wrapped__
 
-            context.fields[field.name] = FieldContext(context, field, v)
-            context.fields[field.name].finalize_value()
+            context.fields[field.name].value = field.get_final_value(v, context)
 
         self.finalize(context)
 

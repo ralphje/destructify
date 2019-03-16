@@ -10,11 +10,11 @@ class ParsingContext:
     to contain context for the field that is being parsed.
     """
 
-    def __init__(self, *, parent=None, stream=None, capture_raw=False, done=False):
+    def __init__(self, *, parent=None, stream=None, capture_raw=False):
         self.parent = parent
         self.stream = stream
         self.capture_raw = capture_raw
-        self.done = done
+        self.done = False
 
         self.fields = {}
         self.f = ParsingContext.F(self)
@@ -46,18 +46,22 @@ class ParsingContext:
         def _root(self):
             return self.__context.root.f
 
-    def initialize_fields(self, meta, structure=None):
+    def initialize_from_meta(self, meta, structure=None):
+        """Adds fields to the context based on the provided StructureOptions. If *structure* is provided, the values
+        in the structure are passed as values to the field contexts
+        """
         self.fields = {}
         for field in meta.fields:
-            value = None
+            value = NOT_PROVIDED
             if structure and hasattr(structure, field.name):
                 value = getattr(structure, field.name)
-            self.fields[field.name] = FieldContext(self, field, value=value)
+            self.fields[field.name] = field.field_context(self, value=value)
 
     def _add_values(self, values):
+        """Method for easily adding :class:`FieldContext` objects to this context. Used only by testing."""
         if values:
             for f, v in values.items():
-                self.fields[f] = FieldContext(self, None, v)
+                self.fields[f] = FieldContext(None, self, v)
         return self
 
     @property
@@ -93,7 +97,7 @@ class ParsingContext:
 class FieldContext:
     """This class contains information about the parsing state of the specified field."""
 
-    def __init__(self, context, field, value=NOT_PROVIDED, *, parsed=False, offset=None, length=None, lazy=False,
+    def __init__(self, field, context, value=NOT_PROVIDED, *, parsed=False, offset=None, length=None, lazy=False,
                  raw=None):
         self.context = context
         self.field = field
@@ -103,13 +107,6 @@ class FieldContext:
         self.length = length
         self.lazy = lazy
         self.raw = raw
-
-    def promote_to_subclass(self, cls):
-        res = cls(self.context, self.field,
-                  value=self._value, parsed=self.parsed, offset=self.offset, length=self.length,
-                  lazy=self.lazy, raw=self.raw)
-        self.context.fields[self.field.name] = res
-        return res
 
     def __repr__(self):
         return '<%s: %s>' % (self.__class__.__name__, self)
@@ -129,15 +126,22 @@ class FieldContext:
     @property
     def has_value(self):
         """Returns whether the value is present."""
-        return self.lazy or self.value is not NOT_PROVIDED
+        return self.lazy or self._value is not NOT_PROVIDED
 
     @property
     def value(self):
         """Returns the value that is to be used. May be a lazy proxy object."""
+        if not self.has_value:
+            raise ValueError("This field has currently no value.")
+
         if self.lazy:
             import lazy_object_proxy
             return lazy_object_proxy.Proxy(self._lazy_get)
         return self._value
+
+    @value.setter
+    def value(self, value):
+        self._value = value
 
     def _lazy_get(self):
         current_offset = self.context.stream.tell()
@@ -147,9 +151,7 @@ class FieldContext:
             value = self.field.decode_value(value, self.context)
             # if the context is not yet done, we can update the field to its final value
             if not self.context.done:
-                self._value = value
-                self.length = length
-                self.lazy = False
+                self.add_parse_info(offset=self.offset, length=length, value=value, lazy=False)
             return value
         finally:
             self.context.stream.seek(current_offset)
@@ -173,12 +175,6 @@ class FieldContext:
 
         if self.context.capture_raw and self.context.stream is not None and length is not None and not lazy:
             self._capture_raw(self.context.stream)
-
-    def initialize_value(self):
-        self._value = self.field.get_initial_value(self.value, self.context)
-
-    def finalize_value(self):
-        self._value = self.field.get_final_value(self.value, self.context)
 
     def _capture_raw(self, stream):
         stream.seek(-self.length, io.SEEK_CUR)

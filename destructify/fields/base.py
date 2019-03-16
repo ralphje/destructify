@@ -1,10 +1,10 @@
 import inspect
 import io
-from functools import total_ordering, partialmethod
+from functools import total_ordering, partialmethod, partial
 
-from destructify import NOT_PROVIDED
-from destructify.exceptions import ImpossibleToCalculateLengthError, DefinitionError
-from destructify.parsing.expression import Expression
+from .. import NOT_PROVIDED, FieldContext
+from ..exceptions import ImpossibleToCalculateLengthError, DefinitionError
+from ..parsing.expression import Expression
 
 
 def _retrieve_property(context, var, special_case_str=True):
@@ -58,11 +58,21 @@ class Field:
         self._creation_counter = Field._creation_counter
         Field._creation_counter += 1
 
+    @property
+    def field_context(self):
+        """The :class:`FieldContext` that is used in the :class:`ParsingContext` for this field. It returns a partially
+        resolved function call with the current field already set.
+
+        :rtype: type
+        """
+        return partial(FieldContext, self)
+
     def _get_property(self, variable_name, context, **kwargs):
         return _retrieve_property(context, getattr(self, variable_name), **kwargs)
 
     @property
     def full_name(self):
+        """The full name of this :class:`Field`."""
         if self.bound_structure is not None:
             return self.bound_structure._meta.structure_name + "." + self.name
         return self.name

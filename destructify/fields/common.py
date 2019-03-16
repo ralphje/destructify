@@ -1,6 +1,6 @@
 import io
 import math
-from functools import partialmethod
+from functools import partialmethod, partial
 
 from . import Field
 from .. import Substream, ParsingContext, FieldContext
@@ -372,6 +372,11 @@ class StructureField(Field):
             return len(self.structure)
 
     @property
+    def field_context(self):
+        """The :class:`FieldContext` that is used in the :class:`ParsingContext` for this field."""
+        return partial(StructureFieldContext, self)
+
+    @property
     def ctype(self):
         ctype = self._ctype or self.structure._meta.object_name
         return "{} {}".format(ctype, self.name)
@@ -389,8 +394,6 @@ class StructureField(Field):
 
         substream = Substream(stream, length=length)
         subcontext = context.__class__(parent=context)
-
-        context.fields[self.name].promote_to_subclass(StructureFieldContext)
         context.fields[self.name].subcontext = subcontext
 
         res, consumed = self.structure.from_stream(substream, context=subcontext)
@@ -411,8 +414,6 @@ class StructureField(Field):
 
         substream = Substream(stream, length=length)
         subcontext = context.__class__(parent=context)
-
-        context.fields[self.name].promote_to_subclass(StructureFieldContext)
         context.fields[self.name].subcontext = subcontext
 
         written = value.to_stream(substream, subcontext)

@@ -42,6 +42,10 @@ Field
 
    .. autoattribute:: Field.preparsable
 
+   .. autoattribute:: Field.full_name
+
+   .. autoattribute:: Field.field_context
+
    A :class:`Field` also defines the following methods:
 
    .. describe:: len(field)
@@ -76,7 +80,7 @@ Field
 ParsingContext
 ==============
 
-.. class:: ParsingContext
+.. autoclass:: ParsingContext
 
    While parsing, it is important to have some context; some fields depend on other fields during writing and during
    reading. The :class:`ParsingContext` object is passed to several methods for this.
@@ -148,15 +152,64 @@ ParsingContext
 
    .. attribute:: ParsingContext.fields
 
-      This is a dictionary of names to information about parsed fields. You can use this to access information of how
+      This is a dictionary of field names to :class:`FieldContext`. You can use this to access information of how
       the fields were parsed. This is typically for debugging purposes, or displaying information about parsing
       structures.
 
    .. attribute:: ParsingContext.done
 
-      Boolean indicating whether the parsing was done.
+      Boolean indicating whether the parsing was done. If this is :const:`True`, lazy fields can no longer become
+      non-lazy.
 
    .. autoattribute:: ParsingContext.field_values
 
+   .. automethod:: ParsingContext.initialize_from_meta
+
    When you are implementing a field yourself, you get a :class:`ParsingContext` when reading from and writing to a
-   stream, meaning you will probably use one the following methods:
+   stream.
+
+FieldContext
+============
+.. autoclass:: FieldContext
+
+   .. attribute:: FieldContext.field
+
+      The field this :class:`FieldContext` applies to.
+
+   .. attribute:: FieldContext.value
+
+      The current value of the field. This only makes sense when :attr:`has_value` is :const:`True`. This can be
+      a proxy object if :attr:`lazy` is true.
+
+   .. attribute:: FieldContext.has_value
+
+      Indicates whether this field has a value. This is true only if the value is set or when :attr:`lazy` is true.
+
+   .. attribute:: FieldContext.parsed
+
+      Indicates whether this field has been written to or read from the stream. This is also true when :attr:`lazy` is
+      true.
+
+   .. attribute:: FieldContext.resolved
+
+      Indicates whether this fields no longer requires stream access, i.e. it is parsed and :attr:`lazy` is false.
+
+   .. attribute:: FieldContext.offset
+
+      Indicates the offset in the stream of this field. Is only set when :attr:`parsed` is true.
+
+   .. attribute:: FieldContext.length
+
+      Indicates the length of this field. Is normally set when :attr:`parsed` is true, but may be not set when
+      :attr:`lazy` is true and the length was not required to be calculated.
+
+   .. attribute:: FieldContext.lazy
+
+      Indicates whether this field is lazily loaded. When a lazy field is resolved during parsing of the structure,
+      i.e. while :attr:`ParsingContext.done` is false, resolving this field will affect :attr:`value`, :attr:`length`
+      and set :attr:`lazy` to false. After :attr:`ParsingContext.done` has become true, these attributes will not be
+      updated.
+
+   .. attribute:: FieldContext.raw
+
+      If :attr:`ParsingContext.capture_raw` is true, this field will contain the raw bytes of the field.
