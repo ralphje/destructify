@@ -8,6 +8,15 @@ from destructify import ParsingContext, Structure, FixedLengthField, StringField
 from tests import DestructifyTestCase
 
 
+class StructureDefaultTest(DestructifyTestCase):
+    def test_default_from_other_field(self):
+        class TestStructure(Structure):
+            field0 = StringField(length=5)
+            field1 = StringField(length=5, default=lambda c: c.field0)
+
+        self.assertEqual(b"abcde", TestStructure(field0=b'abcde').field1)
+
+
 class StructureParsingTest(DestructifyTestCase):
     def test_raw_bytes_are_read(self):
         context = ParsingContext(capture_raw=True)
@@ -26,6 +35,12 @@ class StructureParsingTest(DestructifyTestCase):
         TestStructure.from_stream(io.BytesIO(b"abcdef"), context)
 
         self.assertEqual(None, context.fields['field1'].raw)
+
+    def test_context_set_from_stream(self):
+        class TestStructure(Structure):
+            field0 = StringField(length=5)
+
+        self.assertIsInstance(TestStructure.from_bytes(b"asdfa")._context, ParsingContext)
 
 
 class ChecksTest(DestructifyTestCase):

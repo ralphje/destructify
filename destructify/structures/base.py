@@ -79,19 +79,30 @@ class StructureBase(type):
 
 
 class Structure(metaclass=StructureBase):
-    def __init__(self, **kwargs):
+    def __init__(self, _context=None, **kwargs):
         """A base structure. It is the basis for all structures. You can pass in keyword arguments to provide
         different values than the field's defaults.
 
+        :param _context: The context of the field, only provided by :meth:`from_stream`.
         :param kwargs:
         """
-        context = ParsingContext()
+        if _context is None:
+            _context = ParsingContext(structure=self)
+            new_context = True
+        else:
+            self._context = _context
+            new_context = False
+
         for field in self._meta.fields:
             try:
                 val = kwargs.pop(field.name)
             except KeyError:
-                val = field.get_default(context)
+                val = field.get_default(_context)
             setattr(self, field.name, val)
+
+            # if we are parsing from a new context, we need to set the value
+            if new_context:
+                _context.fields[field.name].value = val
 
         super().__init__()
 
@@ -226,7 +237,7 @@ class Structure(metaclass=StructureBase):
             raise CheckError("One of the checks for {} failed.".format(cls._meta.structure_name))
 
         context.done = True
-        return cls(**context.field_values), max_offset - start_offset
+        return cls(_context=context, **context.field_values), max_offset - start_offset
 
     def to_stream(self, stream, context=None):
         """Writes the current :class:`Structure` to the provided stream. You can explicitly provide a

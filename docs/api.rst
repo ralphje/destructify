@@ -34,6 +34,11 @@ Structure
 
       This allows you to access the :class:`StructureOptions` class of this :class:`Structure`.
 
+   .. attribute:: Structure._context
+
+      If this :class:`Structure` was created by :meth:`from_stream`, this contains the :class:`ParsingContext` that was
+      used during the processing. Otherwise, this attribute is undefined.
+
 Field
 =====
 .. autoclass:: Field
