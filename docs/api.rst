@@ -227,3 +227,7 @@ FieldContext
    .. attribute:: FieldContext.raw
 
       If :attr:`ParsingContext.capture_raw` is true, this field will contain the raw bytes of the field.
+
+   .. attribute:: FieldContext.subcontext
+
+      This may be set if the field created a subcontext to parse its inner field(s).

@@ -1,6 +1,9 @@
+import copy
 import io
+import itertools
 from functools import partialmethod, partial
 
+from destructify.structures.base import _recapture
 from . import Field, Substream, FixedLengthField, FieldContext
 from ..exceptions import DefinitionError, StreamExhaustedError, ParseError, WriteError, WrongMagicError
 
@@ -65,14 +68,6 @@ class ConstantField(BaseFieldMixin, Field):
         return self.base_field.encode_to_stream(stream, value, context)
 
 
-class ArrayFieldContext(FieldContext):
-    """Context that also stores information about the individual items in the array."""
-
-    def __init__(self, *args, **kwargs):
-        self.items = []
-        super().__init__(*args, **kwargs)
-
-
 class ArrayField(BaseFieldMixin, Field):
     def __init__(self, base_field, count=None, length=None, *args, **kwargs):
         self.count = count
@@ -103,11 +98,6 @@ class ArrayField(BaseFieldMixin, Field):
         else:
             return super().__len__()
 
-    @property
-    def field_context(self):
-        """The :class:`FieldContext` that is used in the :class:`ParsingContext` for this field."""
-        return partial(ArrayFieldContext, self)
-
     get_count = partialmethod(Field._get_property, 'count')
     get_length = partialmethod(Field._get_property, 'length')
 
@@ -125,32 +115,58 @@ class ArrayField(BaseFieldMixin, Field):
         total_consumed = 0
 
         # If count is specified, we read the specified amount of times from the stream.
-        if self.count:
+        # otherwise we need to consume the length
+        count = length = None
+        if self.count is not None:
             count = self.get_count(context)
-            for i in range(0, count):
-                res, consumed = self.base_field.decode_from_stream(stream, context)
-                total_consumed += consumed
-                result.append(res)
-
-        elif self.length:
+        elif self.length is not None:
             length = self.get_length(context)
 
-            field_start = stream.tell()
-            if length >= 0:
-                while total_consumed < length:
-                    substream = Substream(stream, stop=field_start + length)
-                    res, consumed = self.base_field.decode_from_stream(substream, context)
-                    total_consumed += consumed
-                    result.append(res)
+        field_start = stream.tell()
+        substream = Substream(stream)
+        subcontext = context.__class__(parent=context, flat=True)
+        if self.name in context.fields:
+            context.fields[self.name].subcontext = subcontext
+
+        for i in itertools.count():
+            if count is not None:
+                # if count is set, we only read the <count> amount of times
+                if count <= i:
+                    break
+            elif length >= 0:
+                # if length is positive, we read <length> amount of bytes
+                if total_consumed >= length:
+                    break
+                substream = Substream(stream, stop=field_start + length)
             else:
-                while True:
-                    try:
-                        res, consumed = self.base_field.decode_from_stream(stream, context)
-                        total_consumed += consumed
-                        result.append(res)
-                    except StreamExhaustedError:
-                        stream.seek(field_start + total_consumed)
-                        break
+                # if
+                pass
+
+            # Create a new 'field' with a different name, and set it in our context
+            field_instance = copy.copy(self.base_field)
+            field_instance.name = i
+            subcontext.fields[i] = field_instance.field_context(context)
+
+            try:
+                with _recapture(ParseError("Error while seeking the start of item {} in field {}"
+                                           .format(i, self.full_name))):
+                    offset = field_instance.seek_start(substream, context, field_start)
+
+                with _recapture(ParseError("Error while parsing item {} in field {}".format(i, self.full_name))):
+                    res, consumed = field_instance.decode_from_stream(substream, context)
+
+                subcontext.fields[i].add_parse_info(value=res, offset=offset, length=consumed)
+
+            except StreamExhaustedError:
+                if length < 0:
+                    # if we have unbounded read, we should just discard the error, otherwise reraise it
+                    stream.seek(field_start + total_consumed)
+                    break
+                raise
+
+            else:
+                total_consumed += consumed
+                result.append(res)
 
         return result, total_consumed
 

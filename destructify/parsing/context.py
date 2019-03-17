@@ -115,13 +115,14 @@ class FieldContext:
         self.length = length
         self.lazy = lazy
         self.raw = raw
+        self.subcontext = None
 
     def __repr__(self):
         return '<%s: %s>' % (self.__class__.__name__, self)
 
     def __str__(self):
         values = []
-        for attr in ('field', 'parsed', 'offset', 'length'):
+        for attr in ('field', 'parsed', 'offset', 'length', 'subcontext'):
             values.append("%s=%r" % (attr, getattr(self, attr)))
         values.insert(1, ('value=%r' % self._value) if not self.lazy else 'value=(lazy)')
         return '%s(%s)' % (self.__class__.__name__, ", ".join(values))

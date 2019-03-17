@@ -3,7 +3,7 @@ import unittest
 
 from destructify import Structure, BitField, FixedLengthField, DefinitionError, BaseFieldMixin, Field, EnumField, \
     IntegerField, ByteField, ConditionalField, ArrayField, SwitchField, ConstantField, WrongMagicError, WriteError, \
-    ParseError
+    ParseError, io, ParsingContext
 from tests import DestructifyTestCase
 
 
@@ -138,6 +138,18 @@ class ArrayFieldTest(DestructifyTestCase):
         self.assertEqual(b'\x02\x01\x03', bytes(TestStruct(numbers=[1, 3])))
         # sanity check
         self.assertStructureStreamEqual(b'\x02\x01\x03', TestStruct(length=2, numbers=[1, 3]))
+
+    def test_context(self):
+        class TestStruct(Structure):
+            numbers = ArrayField(IntegerField(length=1), count=3)
+
+        context = ParsingContext()
+        TestStruct.from_stream(io.BytesIO(b'\x02\x01\x03'), context)
+
+        self.assertIsInstance(context.fields['numbers'].subcontext, ParsingContext)
+        self.assertEqual(2, context.fields['numbers'].subcontext.fields[0].value)
+        self.assertEqual(1, context.fields['numbers'].subcontext.fields[1].value)
+        self.assertEqual(3, context.fields['numbers'].subcontext.fields[2].value)
 
     def test_len(self):
         self.assertEqual(50, len(ArrayField(IntegerField(2, 'big'), count=25)))

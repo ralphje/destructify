@@ -347,14 +347,6 @@ class VariableLengthIntegerField(Field):
         return stream.write(bytes(result))
 
 
-class StructureFieldContext(FieldContext):
-    """Context that also stores the context that is used while parsing the field."""
-
-    def __init__(self, *args, **kwargs):
-        self.subcontext = None
-        super().__init__(*args, **kwargs)
-
-
 class StructureField(Field):
     def __init__(self, structure, *args, length=None, **kwargs):
         self.structure = structure
@@ -370,11 +362,6 @@ class StructureField(Field):
             return self.length
         else:
             return len(self.structure)
-
-    @property
-    def field_context(self):
-        """The :class:`FieldContext` that is used in the :class:`ParsingContext` for this field."""
-        return partial(StructureFieldContext, self)
 
     @property
     def ctype(self):

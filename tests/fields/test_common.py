@@ -3,7 +3,7 @@ import unittest
 
 from destructify import Structure, BitField, FixedLengthField, StructureField, MisalignedFieldError, \
     StringField, IntegerField, BytesField, VariableLengthIntegerField, ParsingContext, ParseError, \
-    ImpossibleToCalculateLengthError, StructureFieldContext
+    ImpossibleToCalculateLengthError
 from destructify.exceptions import DefinitionError, StreamExhaustedError, WriteError
 from tests import DestructifyTestCase
 
@@ -399,7 +399,6 @@ class StructureFieldTest(DestructifyTestCase):
             context = ParsingContext()
             Struct2.from_stream(io.BytesIO(b"\0"), context)
 
-            self.assertIsInstance(context.fields['s'], StructureFieldContext)
             self.assertIsInstance(context.fields['s'].subcontext, ParsingContext)
             self.assertEqual(b"\0", context.fields['s'].subcontext.fields['byte1'].value)
 
@@ -407,7 +406,6 @@ class StructureFieldTest(DestructifyTestCase):
             context = ParsingContext()
             Struct2(s=Struct1(byte1=b"\0")).to_stream(io.BytesIO(), context)
 
-            self.assertIsInstance(context.fields['s'], StructureFieldContext)
             self.assertIsInstance(context.fields['s'].subcontext, ParsingContext)
             self.assertEqual(b"\0", context.fields['s'].subcontext.fields['byte1'].value)
 
