@@ -150,10 +150,10 @@ class ArrayField(BaseFieldMixin, Field):
             try:
                 with _recapture(ParseError("Error while seeking the start of item {} in field {}"
                                            .format(i, self.full_name))):
-                    offset = field_instance.seek_start(substream, context, field_start)
+                    offset = field_instance.seek_start(substream, subcontext, field_start)
 
                 with _recapture(ParseError("Error while parsing item {} in field {}".format(i, self.full_name))):
-                    res, consumed = field_instance.decode_from_stream(substream, context)
+                    res, consumed = field_instance.decode_from_stream(substream, subcontext)
 
                 subcontext.fields[i].add_parse_info(value=res, offset=offset, length=consumed)
 

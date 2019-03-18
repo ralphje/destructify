@@ -20,7 +20,7 @@ class ParsingContext:
         self.fields = {}
         self.f = ParsingContext.F(self)
 
-        if structure:
+        if structure is not None:
             self.initialize_from_meta(structure._meta)
 
     class F:
