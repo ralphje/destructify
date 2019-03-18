@@ -1,5 +1,6 @@
 import inspect
 import io
+from contextlib import contextmanager
 from functools import total_ordering, partialmethod, partial
 
 from .. import NOT_PROVIDED, FieldContext
@@ -66,6 +67,19 @@ class Field:
         :rtype: type
         """
         return partial(FieldContext, self)
+
+    @contextmanager
+    def with_name(self, name):
+        """Context manager that yields this :class:`Field` with a different name. If `name` is :const:`None`, this is
+        ignored.
+        """
+        old_name = self.name
+        if name is not None:
+            self.name = name
+        try:
+            yield self
+        finally:
+            self.name = old_name
 
     def _get_property(self, variable_name, context, **kwargs):
         return _retrieve_property(context, getattr(self, variable_name), **kwargs)

@@ -51,6 +51,8 @@ Field
 
    .. autoattribute:: Field.field_context
 
+   .. automethod:: Field.with_name
+
    A :class:`Field` also defines the following methods:
 
    .. describe:: len(field)
@@ -189,6 +191,11 @@ FieldContext
    .. attribute:: FieldContext.field
 
       The field this :class:`FieldContext` applies to.
+
+   .. attribute:: FieldContext.field_name
+
+      If set, this is the name of the field that is used in the context, regardless of what :attr:`field` has as
+      :attr:`Field.name` set. If this is set, this is used with :meth:`Field.with_name` when parsing lazily.
 
    .. attribute:: FieldContext.value
 

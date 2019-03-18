@@ -51,3 +51,13 @@ class FieldTest(DestructifyTestCase):
             field = IntegerField(1, encoder=lambda v: v + 1, override=lambda c, v: v + 1)
 
         self.assertEqual(b"\x03", Struct(field=1).to_bytes())
+
+    def test_with_name(self):
+        f = Field(name="blah")
+        self.assertEqual("blah", f.name)
+        with f.with_name(name="foo") as field_instance:
+            self.assertEqual("foo", field_instance.name)
+        self.assertEqual("blah", f.name)
+        with f.with_name(name=None) as field_instance:
+            self.assertEqual("blah", field_instance.name)
+        self.assertEqual("blah", f.name)

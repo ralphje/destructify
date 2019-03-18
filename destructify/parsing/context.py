@@ -105,11 +105,12 @@ class ParsingContext:
 class FieldContext:
     """This class contains information about the parsing state of the specified field."""
 
-    def __init__(self, field, context, value=NOT_PROVIDED, *, parsed=False, offset=None, length=None, lazy=False,
-                 raw=None):
+    def __init__(self, field, context, value=NOT_PROVIDED, *, field_name=None,
+                 parsed=False, offset=None, length=None, lazy=False, raw=None):
         self.context = context
         self.field = field
         self._value = value
+        self.field_name = field_name
         self.parsed = parsed
         self.offset = offset
         self.length = length
@@ -156,7 +157,8 @@ class FieldContext:
         current_offset = self.context.stream.tell()
         self.context.stream.seek(self.offset)
         try:
-            value, length = self.field.decode_from_stream(self.context.stream, self.context)
+            with self.field.with_name(name=self.field_name) as field_instance:
+                value, length = field_instance.decode_from_stream(self.context.stream, self.context)
             # if the context is not yet done, we can update the field to its final value
             if not self.context.done:
                 self.add_parse_info(offset=self.offset, length=length, value=value, lazy=False)

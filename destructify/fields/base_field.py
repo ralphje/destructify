@@ -143,17 +143,16 @@ class ArrayField(BaseFieldMixin, Field):
                 pass
 
             # Create a new 'field' with a different name, and set it in our context
-            field_instance = copy.copy(self.base_field)
-            field_instance.name = i
-            subcontext.fields[i] = field_instance.field_context(context)
+            subcontext.fields[i] = self.base_field.field_context(context, field_name=i)
 
             try:
-                with _recapture(ParseError("Error while seeking the start of item {} in field {}"
-                                           .format(i, self.full_name))):
-                    offset = field_instance.seek_start(substream, subcontext, field_start)
+                with self.base_field.with_name(i) as field_instance:
+                    with _recapture(ParseError("Error while seeking the start of item {} in field {}"
+                                               .format(i, self.full_name))):
+                        offset = field_instance.seek_start(substream, subcontext, field_start)
 
-                with _recapture(ParseError("Error while parsing item {} in field {}".format(i, self.full_name))):
-                    res, consumed = field_instance.decode_from_stream(substream, subcontext)
+                    with _recapture(ParseError("Error while parsing item {} in field {}".format(i, self.full_name))):
+                        res, consumed = field_instance.decode_from_stream(substream, subcontext)
 
                 subcontext.fields[i].add_parse_info(value=res, offset=offset, length=consumed)
 
