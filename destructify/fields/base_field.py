@@ -139,7 +139,7 @@ class ArrayField(BaseFieldMixin, Field):
                     break
                 substream = Substream(stream, stop=field_start + length)
             else:
-                # if
+                # for unbounded read, we expect to encounter an exception somewhere down the line
                 pass
 
             # Create a new 'field' with a different name, and set it in our context
@@ -160,6 +160,7 @@ class ArrayField(BaseFieldMixin, Field):
                 if length < 0:
                     # if we have unbounded read, we should just discard the error, otherwise reraise it
                     stream.seek(field_start + total_consumed)
+                    del subcontext.fields[i]
                     break
                 raise
 
