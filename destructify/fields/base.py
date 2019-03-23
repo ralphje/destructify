@@ -158,9 +158,9 @@ class Field:
     def __str__(self):
         """Display the module, class, and name of the field."""
 
-        if hasattr(self, 'bound_structure'):
+        if hasattr(self, 'bound_structure') and self.full_name is not None:
             return self.full_name
-        elif hasattr(self, 'name'):
+        elif hasattr(self, 'name') and self.name is not None:
             return self.name
         else:
             return repr(self)

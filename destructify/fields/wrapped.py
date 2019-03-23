@@ -27,13 +27,11 @@ class WrappedFieldMixin(object):
                 self.override = self.base_field.override
 
     def initialize(self):
+        self.base_field.name = self.name + ".inner"
+        self.base_field.bound_structure = self.bound_structure
+
         super().initialize()
         self.base_field.initialize()
-
-    def contribute_to_class(self, cls, name):
-        super().contribute_to_class(cls, name)
-        self.base_field.name = name
-        self.base_field.bound_structure = cls
 
     @property
     def ctype(self):
@@ -48,7 +46,7 @@ class ConstantField(WrappedFieldMixin, Field):
             if isinstance(value, bytes):
                 base_field = FixedLengthField(length=len(value))
             else:
-                raise DefinitionError("{} must specify a base_field or a bytes object as default value".format(self))
+                raise DefinitionError(f"{self} must specify a base_field or a bytes object as default value")
 
         self.value = value
         kwargs.setdefault("default", self.value)
@@ -153,11 +151,10 @@ class ArrayField(WrappedFieldMixin, Field):
 
             try:
                 with self.base_field.with_name(i) as field_instance:
-                    with _recapture(ParseError("Error while seeking the start of item {} in field {}"
-                                               .format(i, self.full_name))):
+                    with _recapture(ParseError(f"Error while seeking the start of item {i} in field {self}")):
                         offset = field_instance.seek_start(substream, subcontext, field_start)
 
-                    with _recapture(ParseError("Error while parsing item {} in field {}".format(i, self.full_name))):
+                    with _recapture(ParseError(f"Error while parsing item {i} in field {self}")):
                         res, consumed = field_instance.decode_from_stream(substream, subcontext)
 
                 subcontext.fields[i].add_parse_info(value=res, offset=offset, length=consumed)

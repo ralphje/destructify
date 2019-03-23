@@ -275,8 +275,8 @@ class StringField(BytesField):
     def to_stream(self, stream, value, context):
         return super().to_stream(stream, value.encode(self.encoding, self.errors), context)
 
-    def contribute_to_class(self, cls, name):
-        super().contribute_to_class(cls, name)
+    def initialize(self):
+        super().initialize()
 
         # If byte_order is specified in the meta of the structure, we change our own default byte order (if not set)
         if self.bound_structure._meta.encoding and not self.encoding:
@@ -306,8 +306,8 @@ class IntegerField(FixedLengthField):
                              signed=self.signed)
         return stream.write(val)
 
-    def contribute_to_class(self, cls, name):
-        super().contribute_to_class(cls, name)
+    def initialize(self):
+        super().initialize()
 
         # If byte_order is specified in the meta of the structure, we change our own default byte order (if not set)
         if self.bound_structure._meta.byte_order and not self.byte_order:
@@ -425,14 +425,14 @@ class SwitchField(Field):
         if self.other is not None and not isinstance(self.other, Field):
             raise DefinitionError("You must initialize the default property of %s with a Field." % (self.full_name,))
 
-    def contribute_to_class(self, cls, name):
-        super().contribute_to_class(cls, name)
+    def initialize(self):
         for f in self.cases.values():
-            f.name = name
-            f.bound_structure = cls
+            f.name = self.name
+            f.bound_structure = self.bound_structure
         if self.other is not None:
-            self.other.name = name
-            self.other.bound_structure = cls
+            self.other.name = self.name
+            self.other.bound_structure = self.bound_structure
+        super().initialize()
 
     get_switch = partialmethod(Field._get_property, 'switch')
 

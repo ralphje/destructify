@@ -52,8 +52,8 @@ class StructField(FixedLengthField):
         self._struct = struct.Struct(self.byte_order + self.format)
         super().__init__(length=self._struct.size, *args, **kwargs)
 
-    def contribute_to_class(self, cls, name):
-        super().contribute_to_class(cls, name)
+    def initialize(self):
+        super().initialize()
 
         # If byte_order is specified in the meta of the structure, we change our own default byte order (if not set)
         if self.bound_structure._meta.byte_order and not self.byte_order:

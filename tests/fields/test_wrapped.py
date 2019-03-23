@@ -29,8 +29,8 @@ class BaseFieldTestCase(unittest.TestCase):
         class Struct(Structure):
             thing = MyField(BitField(1))
 
-        self.assertEqual("thing", Struct._meta.fields[0].base_field.name)
-        self.assertEqual("Struct.thing", Struct._meta.fields[0].base_field.full_name)
+        self.assertEqual("thing.inner", Struct._meta.fields[0].base_field.name)
+        self.assertEqual("Struct.thing.inner", Struct._meta.fields[0].base_field.full_name)
         self.assertIs(Struct._meta.fields[0].bound_structure, Struct._meta.fields[0].base_field.bound_structure)
 
 
@@ -109,6 +109,15 @@ class ConditionalFieldTest(DestructifyTestCase):
 
 
 class ArrayFieldTest(DestructifyTestCase):
+    def test_with_endianness_from_meta(self):
+        class Struct(Structure):
+            x = ArrayField(IntegerField(2), count=2)
+
+            class Meta:
+                byte_order = 'big'
+
+        self.assertStructureStreamEqual(b"\x02\x01\x00\x01", Struct(x=[513, 1]))
+
     def test_count(self):
         self.assertFieldStreamEqual(b"\x02\x01\x00\x01", [513, 1], ArrayField(IntegerField(2, 'big'), count=2))
 
