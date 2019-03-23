@@ -11,6 +11,7 @@ v0.2.0 (unreleased)
 This release adds more field types and further improves on existing code. It also extends the documentation
 significantly.
 
+* Added Destructify GUI
 * Added :attr:`StructureOptions.encoding`
 * Added :attr:`StructureOptions.alignment`, :attr:`Field.offset` and :attr:`Field.skip`, implemented by
   :class:`Field.seek_start`

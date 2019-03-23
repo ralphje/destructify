@@ -33,6 +33,7 @@ Contents:
    structure
    parsing
    fields
+   gui
    api
    fieldspec
    changelog
