@@ -176,6 +176,15 @@ class ArrayFieldTest(DestructifyTestCase):
         self.assertEqual(1, context.fields['numbers'].subcontext.fields[1].value)
         self.assertEqual(3, context.fields['numbers'].subcontext.fields[2].value)
 
+    def test_until(self):
+        self.assertFieldFromStreamEqual(b"\x01\x01\x02\x01", [1, 1, 2], ArrayField(IntegerField(1),
+                                                                                   until=lambda c, v: v == 2))
+        with self.assertRaises(StreamExhaustedError):
+            self.assertFieldFromStreamEqual(b"\x01\x01\x02\x01", [1, 1, 2], ArrayField(IntegerField(1),
+                                                                                       until=lambda c, v: False))
+        self.assertFieldFromStreamEqual(b"\x01\x01\x02\x01", [1, 1, 2], ArrayField(IntegerField(1), count=3,
+                                                                                   until=lambda c, v: False))
+
     def test_len(self):
         self.assertEqual(50, len(ArrayField(IntegerField(2, 'big'), count=25)))
 

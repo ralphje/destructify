@@ -11,7 +11,7 @@ v0.2.0 (unreleased)
 This release adds more field types and further improves on existing code. It also extends the documentation
 significantly.
 
-* Added Destructify GUI
+* Added Destructify GUI, contributed by `mvdnes <https://github.com/mvdnes>`_.
 * Added :attr:`StructureOptions.encoding`
 * Added :attr:`StructureOptions.alignment`, :attr:`Field.offset` and :attr:`Field.skip`, implemented by
   :class:`Field.seek_start`
@@ -19,6 +19,7 @@ significantly.
 * Added :attr:`Field.decoder`, :attr:`Field.encoder` and :meth:`Structure.initialize`
 * Added :attr:`BytesField.terminator_handler`
 * Added :attr:`ConditionalField.fallback`
+* Added :attr:`ArrayField.until`
 * New field :class:`BytesField`, merging the features of :class:`FixedLengthField` and :class:`TerminatedField`. These
   fields will remain as subclasses.
 * New field: :class:`ConstantField`
@@ -31,7 +32,8 @@ significantly.
 * Add :attr:`ParsingContext.fields` for information about the parsing structure.
 * Added :attr:`ParsingContext.f` for raw attribute access; this is now passed to lambdas.
 * Added :class:`this` for quick construction of lambdas
-* :class:`Substream` is now a wrapper instead of a full-fletched BufferedReader
+* :class:`Substream` is now a wrapper instead of a full-fetched BufferedReader
+* Numerous bugfixes for consistent building of fields.
 
 v0.1.0 (2019-02-17)
 -------------------

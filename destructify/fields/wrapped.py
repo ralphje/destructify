@@ -71,12 +71,13 @@ class ConstantField(WrappedFieldMixin, Field):
 
 
 class ArrayField(WrappedFieldMixin, Field):
-    def __init__(self, base_field, count=None, length=None, *args, **kwargs):
+    def __init__(self, base_field, count=None, length=None, until=None, *args, **kwargs):
         self.count = count
         self.length = length
+        self.until = until
 
-        if count is None and length is None:
-            raise DefinitionError("%s must specify a count or a length" % self.full_name)
+        if count is None and length is None and until is None:
+            raise DefinitionError("%s must specify a count, length or until" % self.full_name)
         elif count is not None and length is not None:
             raise DefinitionError("%s cannot specify both a count and length" % self.full_name)
         elif count is not None and isinstance(count, int) and count < 0:
@@ -137,7 +138,7 @@ class ArrayField(WrappedFieldMixin, Field):
                 # if count is set, we only read the <count> amount of times
                 if count <= i:
                     break
-            elif length >= 0:
+            elif length is not None and length >= 0:
                 # if length is positive, we read <length> amount of bytes
                 if total_consumed >= length:
                     break
@@ -170,6 +171,10 @@ class ArrayField(WrappedFieldMixin, Field):
             else:
                 total_consumed += consumed
                 result.append(res)
+
+            # Stop when the condition in until is true.
+            if self.until is not None and self.until(subcontext, res):
+                break
 
         return result, total_consumed
 

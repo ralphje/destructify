@@ -527,6 +527,16 @@ ArrayField
 
       When writing, the count must exactly match the amount of items in the provided iterable.
 
+   Example usage::
+
+       >>> class ArrayStructure(Structure):
+       ...     count = UnsignedByteField()
+       ...     foo = ArrayField(TerminatedField(terminator=b'\0'), count='count')
+       ...
+       >>> s = ArrayStructure.from_bytes(b"\x02hello\0world\0")
+       >>> s.foo
+       [b'hello', b'world']
+
    .. attribute:: ArrayField.length
 
       This specifies the size of the field, if you do not know the count of the fields, but do know the size.
@@ -548,15 +558,12 @@ ArrayField
 
       When writing using a positive length, the written amount of bytes must be exactly the specified length.
 
-   Example usage::
+   .. attribute:: ArrayField.until
 
-       >>> class ArrayStructure(Structure):
-       ...     count = UnsignedByteField()
-       ...     foo = ArrayField(TerminatedField(terminator=b'\0'), count='count')
-       ...
-       >>> s = ArrayStructure.from_bytes(b"\x02hello\0world\0")
-       >>> s.foo
-       [b'hello', b'world']
+      This is a function taking a context and the value of the most-recent parsed element. If this function returns
+      true, the parsing stops.
+
+      This function is ignored during writing.
 
 ConditionalField
 ================
