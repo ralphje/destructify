@@ -50,7 +50,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Destructify'
-copyright = '2018, Ralph Broenink'
+copyright = '2019, Ralph Broenink'
 author = 'Ralph Broenink'
 
 # The version info for the project you're documenting, acts as replacement for
