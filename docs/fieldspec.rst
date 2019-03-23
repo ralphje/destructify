@@ -476,6 +476,9 @@ StructureField
       When specified using a string, this field does *not* override the value of the referenced field due to
       complications in calculating the length.
 
+      During reading and writing, if the specified length is larger than the structure, the remaining bytes are skipped.
+      If it is shorter, the structure parsing will break.
+
    Example usage::
 
        >>> class Sub(Structure):
@@ -499,7 +502,8 @@ ArrayField
 
 .. autoclass:: ArrayField
 
-   A field that repeats the provided base field multiple times.
+   A field that repeats the provided base field multiple times. The implementation will build a structure-like parsing
+   context with field names that are the element indexes.
 
    .. attribute:: ArrayField.base_field
 
@@ -521,6 +525,8 @@ ArrayField
       When this attribute is set using a string, and the referenced field does not have an override set, the override
       of this field will be set to take the length of the value of this field.
 
+      When writing, the count must exactly match the amount of items in the provided iterable.
+
    .. attribute:: ArrayField.length
 
       This specifies the size of the field, if you do not know the count of the fields, but do know the size.
@@ -539,6 +545,8 @@ ArrayField
 
       When specified using a string, this field does *not* override the value of the referenced field due to
       complications in calculating the length.
+
+      When writing using a positive length, the written amount of bytes must be exactly the specified length.
 
    Example usage::
 

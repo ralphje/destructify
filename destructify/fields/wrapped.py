@@ -160,7 +160,7 @@ class ArrayField(WrappedFieldMixin, Field):
                 subcontext.fields[i].add_parse_info(value=res, offset=offset, length=consumed)
 
             except StreamExhaustedError:
-                if length < 0:
+                if length is not None and length < 0:
                     # if we have unbounded read, we should just discard the error, otherwise reraise it
                     stream.seek(field_start + total_consumed)
                     del subcontext.fields[i]
@@ -176,12 +176,42 @@ class ArrayField(WrappedFieldMixin, Field):
     def to_stream(self, stream, value, context):
         if value is None:
             value = []
-
-        # TODO: handle length and count
-
         total_written = 0
-        for val in value:
-            total_written += self.base_field.encode_to_stream(stream, val, context)
+
+        length = None
+        if self.count is not None:
+            if len(value) != self.get_count(context):
+                raise WriteError(f"The count of {self.name} does not match its value.")
+
+        elif self.length is not None:
+            length = self.get_length(context)
+
+        field_start = stream.tell()
+        substream = Substream(stream)
+        subcontext = context.__class__(parent=context, flat=True)
+        if self.name in context.fields:
+            context.fields[self.name].subcontext = subcontext
+
+        for i, val in enumerate(value):
+            if length is not None and length >= 0:
+                substream = Substream(stream, stop=field_start + length)
+
+            # Create a new 'field' with a different name, and set it in our context
+            subcontext.fields[i] = self.base_field.field_context(context, field_name=i, value=val)
+
+            with self.base_field.with_name(i) as field_instance:
+                with _recapture(WriteError(f"Error while seeking the start of item {i} in field {self}")):
+                    offset = field_instance.seek_start(substream, subcontext, field_start)
+
+                with _recapture(WriteError(f"Error while parsing item {i} in field {self}")):
+                    written = field_instance.encode_to_stream(substream, val, subcontext)
+
+            subcontext.fields[i].add_parse_info(offset=offset, length=written)
+            total_written += written
+
+        if length is not None and total_written < length:
+            raise WriteError(f"Only {total_written} bytes written in {self.name}, expected {length}.")
+
         return total_written
 
 

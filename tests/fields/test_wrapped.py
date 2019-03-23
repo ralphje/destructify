@@ -3,7 +3,7 @@ import unittest
 
 from destructify import Structure, BitField, FixedLengthField, DefinitionError, WrappedFieldMixin, Field, EnumField, \
     IntegerField, ByteField, ConditionalField, ArrayField, SwitchField, ConstantField, WrongMagicError, WriteError, \
-    ParseError, io, ParsingContext
+    ParseError, io, ParsingContext, StreamExhaustedError
 from tests import DestructifyTestCase
 
 
@@ -121,11 +121,27 @@ class ArrayFieldTest(DestructifyTestCase):
     def test_count(self):
         self.assertFieldStreamEqual(b"\x02\x01\x00\x01", [513, 1], ArrayField(IntegerField(2, 'big'), count=2))
 
+    def test_incorrect_count(self):
+        with self.assertRaises(StreamExhaustedError):
+            self.call_field_from_stream(ArrayField(IntegerField(1), count=2), b"\x01")
+        with self.assertRaises(WriteError):
+            self.call_field_to_stream(ArrayField(IntegerField(1), count=2), [2])
+        with self.assertRaises(WriteError):
+            self.call_field_to_stream(ArrayField(IntegerField(1), count=2), [2, 3, 4])
+
     def test_length(self):
         self.assertFieldStreamEqual(b"\x02\x01\x00\x01", [513, 1], ArrayField(IntegerField(2, 'big'), length=4))
         self.assertFieldStreamEqual(b"\x02\x01\x00\x01", [b"\x02\x01\x00\x01"], ArrayField(FixedLengthField(-1), length=4))
         self.assertFieldStreamEqual(b"\x02\x01\x00\x01", [b"\x02\x01", b"\x00\x01"], ArrayField(FixedLengthField(2), length=4))
         self.assertFieldStreamEqual(b"\x02\x01\x00\x01", [b"\x02\x01", b"\x00\x01"], ArrayField(FixedLengthField(2), length=-1))
+
+    def test_incorrect_length(self):
+        with self.assertRaises(StreamExhaustedError):
+            self.call_field_from_stream(ArrayField(IntegerField(1), length=2), b"\x01")
+        with self.assertRaises(WriteError):
+            self.call_field_to_stream(ArrayField(IntegerField(1), length=2), [2])
+        with self.assertRaises(WriteError):
+            self.call_field_to_stream(ArrayField(IntegerField(1), length=2), [2, 3, 4])
 
     def test_count_from_other_field(self):
         class SubStructure(Structure):
