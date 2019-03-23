@@ -1,7 +1,7 @@
 import enum
 import unittest
 
-from destructify import Structure, BitField, FixedLengthField, DefinitionError, BaseFieldMixin, Field, EnumField, \
+from destructify import Structure, BitField, FixedLengthField, DefinitionError, WrappedFieldMixin, Field, EnumField, \
     IntegerField, ByteField, ConditionalField, ArrayField, SwitchField, ConstantField, WrongMagicError, WriteError, \
     ParseError, io, ParsingContext
 from tests import DestructifyTestCase
@@ -9,7 +9,7 @@ from tests import DestructifyTestCase
 
 class BaseFieldTestCase(unittest.TestCase):
     def test_wrong_initialization(self):
-        class MyField(BaseFieldMixin, Field):
+        class MyField(WrappedFieldMixin, Field):
             pass
 
         class Struct(Structure):
@@ -23,7 +23,7 @@ class BaseFieldTestCase(unittest.TestCase):
             MyField(BitField)
 
     def test_full_name_and_bound_structure(self):
-        class MyField(BaseFieldMixin, Field):
+        class MyField(WrappedFieldMixin, Field):
             pass
 
         class Struct(Structure):
@@ -217,17 +217,3 @@ class EnumFieldTest(DestructifyTestCase):
         self.assertFieldToStreamEqual(b'b', b'b', field)
         with self.assertRaises(TypeError):
             self.assertFieldToStreamEqual(b'b', 'x', field)
-
-
-class SwitchFieldTest(DestructifyTestCase):
-    def test_basic_switch(self):
-        self.assertFieldStreamEqual(b"\x01", 1,
-                                    SwitchField(cases={1: IntegerField(1), 2: IntegerField(2, 'little')}, switch=1))
-        self.assertFieldStreamEqual(b"\x01\x01", 0x0101,
-                                    SwitchField(cases={1: IntegerField(1), 2: IntegerField(2, 'little')}, switch=2))
-        self.assertFieldStreamEqual(b"\x01", 1,
-                                    SwitchField(cases={1: IntegerField(1), 2: IntegerField(2, 'little')}, switch='c'),
-                                    parsed_fields={'c': 1})
-
-    def test_switch_other(self):
-        self.assertFieldStreamEqual(b"\x01", 1, SwitchField(cases={}, other=IntegerField(1), switch=1))

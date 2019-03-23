@@ -1,14 +1,14 @@
-import copy
 import io
 import itertools
-from functools import partialmethod, partial
+from functools import partialmethod
 
-from destructify.structures.base import _recapture
-from . import Field, Substream, FixedLengthField, FieldContext
+from . import Field, FixedLengthField
+from ..structures.base import _recapture
+from ..parsing import Substream
 from ..exceptions import DefinitionError, StreamExhaustedError, ParseError, WriteError, WrongMagicError
 
 
-class BaseFieldMixin(object):
+class WrappedFieldMixin(object):
     _take_attributes_from_base = False
 
     def __init__(self, base_field, *args, **kwargs):
@@ -26,6 +26,10 @@ class BaseFieldMixin(object):
             if self.base_field.has_override and not self.has_override:
                 self.override = self.base_field.override
 
+    def initialize(self):
+        super().initialize()
+        self.base_field.initialize()
+
     def contribute_to_class(self, cls, name):
         super().contribute_to_class(cls, name)
         self.base_field.name = name
@@ -36,7 +40,7 @@ class BaseFieldMixin(object):
         return self._ctype or self.base_field.ctype
 
 
-class ConstantField(BaseFieldMixin, Field):
+class ConstantField(WrappedFieldMixin, Field):
     _take_attributes_from_base = True
 
     def __init__(self, value, base_field=None, *args, **kwargs):
@@ -68,7 +72,7 @@ class ConstantField(BaseFieldMixin, Field):
         return self.base_field.encode_to_stream(stream, value, context)
 
 
-class ArrayField(BaseFieldMixin, Field):
+class ArrayField(WrappedFieldMixin, Field):
     def __init__(self, base_field, count=None, length=None, *args, **kwargs):
         self.count = count
         self.length = length
@@ -84,6 +88,8 @@ class ArrayField(BaseFieldMixin, Field):
 
     def initialize(self):
         """Overrides the content of the length field if possible."""
+
+        super().initialize()
 
         if isinstance(self.count, str):
             related_field = self.bound_structure._meta.get_field_by_name(self.count)
@@ -182,7 +188,7 @@ class ArrayField(BaseFieldMixin, Field):
         return total_written
 
 
-class ConditionalField(BaseFieldMixin, Field):
+class ConditionalField(WrappedFieldMixin, Field):
     _take_attributes_from_base = True
 
     def __init__(self, base_field, condition, *args, fallback=None, **kwargs):
@@ -208,7 +214,7 @@ class ConditionalField(BaseFieldMixin, Field):
         return 0
 
 
-class EnumField(BaseFieldMixin, Field):
+class EnumField(WrappedFieldMixin, Field):
     _take_attributes_from_base = True
 
     def __init__(self, base_field, enum, *args, **kwargs):
@@ -216,7 +222,7 @@ class EnumField(BaseFieldMixin, Field):
         super().__init__(base_field, *args, **kwargs)
 
     def __len__(self):
-        return self.base_field.__len__()
+        return len(self.base_field)
 
     def from_stream(self, stream, context):
         value, length = self.base_field.decode_from_stream(stream, context)
@@ -231,48 +237,3 @@ class EnumField(BaseFieldMixin, Field):
             except KeyError:
                 pass
         return self.base_field.encode_to_stream(stream, value, context)
-
-
-class SwitchField(Field):
-    def __init__(self, cases, switch, *args, other=None, **kwargs):
-        self.cases = cases
-        self.switch = switch
-        self.other = other
-
-        super().__init__(*args, **kwargs)
-
-        if not all((isinstance(f, Field) for f in self.cases.values())):
-            raise DefinitionError("You must initialize the cases property of %s with Field values." % (self.full_name,))
-        if self.other is not None and not isinstance(self.other, Field):
-            raise DefinitionError("You must initialize the default property of %s with a Field." % (self.full_name,))
-
-    def contribute_to_class(self, cls, name):
-        super().contribute_to_class(cls, name)
-        for f in self.cases.values():
-            f.name = name
-            f.bound_structure = cls
-        if self.other is not None:
-            self.other.name = name
-            self.other.bound_structure = cls
-
-    get_switch = partialmethod(Field._get_property, 'switch')
-
-    @property
-    def ctype(self):
-        return "switch {}".format(self.name)
-
-    def from_stream(self, stream, context):
-        switch = self.get_switch(context)
-        if switch in self.cases:
-            return self.cases[switch].decode_from_stream(stream, context)
-        if self.other is not None:
-            return self.other.decode_from_stream(stream, context)
-        raise ParseError("The case {} is not specified for {}, and other is unset".format(switch, self.full_name))
-
-    def to_stream(self, stream, value, context):
-        switch = self.get_switch(context)
-        if switch in self.cases:
-            return self.cases[switch].encode_to_stream(stream, value, context)
-        if self.other is not None:
-            return self.other.encode_to_stream(stream, value, context)
-        raise WriteError("The case {} is not specified for {}, and other is unset".format(switch, self.full_name))

@@ -3,7 +3,7 @@ import unittest
 
 from destructify import Structure, BitField, FixedLengthField, StructureField, MisalignedFieldError, \
     StringField, IntegerField, BytesField, VariableLengthIntegerField, ParsingContext, ParseError, \
-    ImpossibleToCalculateLengthError
+    ImpossibleToCalculateLengthError, SwitchField
 from destructify.exceptions import DefinitionError, StreamExhaustedError, WriteError
 from tests import DestructifyTestCase
 
@@ -519,3 +519,17 @@ class VariableLengthQuantityFieldTest(DestructifyTestCase):
     def test_stream_not_sufficient(self):
         with self.assertRaises(StreamExhaustedError):
             self.call_field_from_stream(VariableLengthIntegerField(), b'\x81\x80\x80')
+
+
+class SwitchFieldTest(DestructifyTestCase):
+    def test_basic_switch(self):
+        self.assertFieldStreamEqual(b"\x01", 1,
+                                    SwitchField(cases={1: IntegerField(1), 2: IntegerField(2, 'little')}, switch=1))
+        self.assertFieldStreamEqual(b"\x01\x01", 0x0101,
+                                    SwitchField(cases={1: IntegerField(1), 2: IntegerField(2, 'little')}, switch=2))
+        self.assertFieldStreamEqual(b"\x01", 1,
+                                    SwitchField(cases={1: IntegerField(1), 2: IntegerField(2, 'little')}, switch='c'),
+                                    parsed_fields={'c': 1})
+
+    def test_switch_other(self):
+        self.assertFieldStreamEqual(b"\x01", 1, SwitchField(cases={}, other=IntegerField(1), switch=1))
