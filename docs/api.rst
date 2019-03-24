@@ -159,6 +159,10 @@ ParsingContext
       Access to the parent context (useful when parsing a Structure inside a Structure). May be :const:`None` if this is
       the uppermost context.
 
+   .. attribute:: ParsingContext.parent_field
+
+      The field in the parent that is responsible for creation of this subcontext.
+
    .. attribute:: ParsingContext.flat
 
       Indicates that the parent context should be considered part of this context as well. This allows you to reference
@@ -217,7 +221,12 @@ FieldContext
 
    .. attribute:: FieldContext.offset
 
-      Indicates the offset in the stream of this field. Is only set when :attr:`parsed` is true.
+      Indicates the offset in the stream of this field, relative to the parent of this field. Is only set when
+      :attr:`parsed` is true.
+
+   .. attribute:: FieldContext.absolute_offset
+
+      Returns the absolute offset in the stream of this field. Is only set when :attr:`parsed` is true.
 
    .. attribute:: FieldContext.length
 

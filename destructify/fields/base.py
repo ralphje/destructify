@@ -52,7 +52,7 @@ class Field:
         if offset is not None and skip is not None:
             raise DefinitionError("The field {} specifies both 'offset' and 'skip', which is impossible."
                                   .format(self.full_name))
-        if skip is not None and skip < 0:
+        if skip is not None and isinstance(skip, int) and skip < 0:
             raise DefinitionError("The field {} specifies a negative skip, which is impossible."
                                   .format(self.full_name))
 

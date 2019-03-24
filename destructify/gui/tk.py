@@ -11,46 +11,47 @@ PRINTABLE_BYTES = (string.digits + string.ascii_letters + string.punctuation + '
 BYTE_VALUE_STRING_MAX_LENGTH = 15
 
 
-def fill_tree_with_values_recursively(tree, parent_tree_id, valuedata, position, byte_position_to_tree_index):
-    if isinstance(valuedata, dict):
-        # non-leaf element
-        for name, (value, size) in valuedata.items():
-            tree_id = tree.insert(parent_tree_id, "end", text=name, tags=("with_select_handler",))
-            tree.set(tree_id, "position", position)
-            tree.set(tree_id, "length", size)
-
-            # Fill the byte_position_to_tree_index map before the recursive call, so that the deepest item has priority.
-            byte_position_to_tree_index[position] = tree_id
-
-            fill_tree_with_values_recursively(tree, tree_id, value, position, byte_position_to_tree_index)
-
-            position += size
-    else:
-        # leaf element
-        if isinstance(valuedata, bytes):
-            valuestring = str(valuedata[:BYTE_VALUE_STRING_MAX_LENGTH])[2:-1]
-            if len(valuedata) > BYTE_VALUE_STRING_MAX_LENGTH:
-                valuestring += "..."
-        else:
-            valuestring = str(valuedata)
-        tree.set(parent_tree_id, "value", valuestring)
-
-
 class TkStructViewer:
     current_hover_tree_id = None
 
-    def __init__(self, values, bytedata):
+    def __init__(self, context, bytedata):
         self.bytedata = bytedata
+        self.offset_to_tree_id = {}
 
         self.setup_ui()
-        self.initialize_treeview(values)
+        self.initialize_treeview(context)
         self.initialize_hexview()
 
-    def initialize_treeview(self, values):
+    def recursive_tree_fill(self, context, parent_item=""):
+        for name, fcontext in context.fields.items():
+            if isinstance(name, int):
+                name = f"[{name}]"
+
+            item_id = self.tree.insert(parent_item, "end", text=name, tags=("with_select_handler",))
+            self.tree.set(item_id, "offset", fcontext.absolute_offset)
+            self.tree.set(item_id, "length", fcontext.length)
+            # Fill the byte_position_to_tree_index map before the recursive call, so that the deepest item has priority.
+            self.offset_to_tree_id[fcontext.absolute_offset, fcontext.absolute_offset + fcontext.length] = item_id
+
+            if fcontext.lazy:
+                self.tree.set(item_id, "value", "(lazy)")
+
+            elif fcontext.has_value:
+                if isinstance(fcontext.value, bytes):
+                    val = str(fcontext.value[:BYTE_VALUE_STRING_MAX_LENGTH])[2:-1]
+                    if len(fcontext.value) > BYTE_VALUE_STRING_MAX_LENGTH:
+                        val += "..."
+                else:
+                    val = str(fcontext.value)
+                self.tree.set(item_id, "value", val)
+
+            if fcontext.subcontext is not None:
+                self.recursive_tree_fill(fcontext.subcontext, item_id)
+
+    def initialize_treeview(self, context):
         self.tree.delete(*self.tree.get_children())
-        byte_position_to_tree_index = {}
-        fill_tree_with_values_recursively(self.tree, "", values, 0, byte_position_to_tree_index)
-        self.byte_position_to_tree_index = sorted(byte_position_to_tree_index.items())
+        self.recursive_tree_fill(context)
+        # This must be sorted to enable bisect
 
     def initialize_hexview(self):
         self.text.configure(state="normal")  # make text editable
@@ -82,11 +83,11 @@ class TkStructViewer:
         text.configure(cursor="hand2")
 
         # tree widget containing the logical representation
-        tree = tkinter.ttk.Treeview(content, columns=("value", "position", "length"))
+        tree = tkinter.ttk.Treeview(content, columns=("value", "offset", "length"))
         scroll2 = tkinter.Scrollbar(content, command=tree.yview)
         tree.configure(yscrollcommand=scroll2.set)
         tree.heading("value", text="Value")
-        tree.heading("position", text="Position")
+        tree.heading("offset", text="Offset")
         tree.heading("length", text="Length")
         # Bind Release instead of normal events as otherwise the focused tree id is not updated yet.
         tree.tag_bind("with_select_handler", "<ButtonRelease-1>", self.on_tree_item_changed)
@@ -124,7 +125,7 @@ class TkStructViewer:
         self.tree = tree
 
     def add_tag_to_text_corresponding_to_tree_id(self, tree_id, tag, see=False):
-        position = self.tree.set(tree_id, "position")
+        position = self.tree.set(tree_id, "offset")
         length = self.tree.set(tree_id, "length")
 
         # end position is inclusive
@@ -169,11 +170,16 @@ class TkStructViewer:
 
         byte_index = (r-1)*16 + bytecol
 
-        # As (v,) < (v, n) for all n, we search for the value less than (byteindex+1,)
-        # since that will be our current item in the byte_position_to_tree_index map.
-        # See also: https://docs.python.org/3.7/library/bisect.html#searching-sorted-lists
-        i = bisect.bisect_left(self.byte_position_to_tree_index, (byte_index+1,))
-        return self.byte_position_to_tree_index[i-1][1]
+        # Search for the smallest item that matches the start-end range.
+        # Note that we have to cover the case where a item may not be specified, due to skipped bytes.
+        # We should be using bisect here, but this gives me headaches now.
+        candidates = []
+        for (start, end), tree_id in sorted(self.offset_to_tree_id.items()):
+            if start <= byte_index < end:
+                candidates.append((end - start, tree_id))
+        if candidates:
+            return min(candidates)[1]
+        return None
 
     def on_tree_item_changed(self, ev):
         selected_tree_id = self.tree.focus()
@@ -231,18 +237,6 @@ class TkStructViewer:
         self.root.mainloop()
 
 
-def destructify_context_to_dict(context):
-    res = {}
-    for name, field in context.fields.items():
-        if type(name) == int:
-            name = f"[{name}]"
-        if field.subcontext is not None:
-            res[name] = (destructify_context_to_dict(field.subcontext), field.length)
-        else:
-            res[name] = (field.value, field.length)
-    return res
-
-
 def show(structure, stream):
     if not issubclass(structure, Structure):
         raise ValueError(f"{structure!r} is not a Structure")
@@ -255,7 +249,5 @@ def show(structure, stream):
     context = ParsingContext(structure)
     structure.from_stream(io.BytesIO(raw), context)
 
-    dict_representation = destructify_context_to_dict(context)
-
-    gui = TkStructViewer(dict_representation, raw)
+    gui = TkStructViewer(context, raw)
     gui.run()

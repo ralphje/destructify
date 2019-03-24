@@ -10,8 +10,9 @@ class ParsingContext:
     to contain context for the field that is being parsed.
     """
 
-    def __init__(self, structure=None, *, parent=None, flat=False, stream=None, capture_raw=False):
+    def __init__(self, structure=None, *, parent=None, parent_field=None, flat=False, stream=None, capture_raw=False):
         self.parent = parent
+        self.parent_field = parent_field
         self.flat = flat
         self.stream = stream
         self.capture_raw = capture_raw
@@ -127,6 +128,13 @@ class FieldContext:
             values.append("%s=%r" % (attr, getattr(self, attr)))
         values.insert(1, ('value=%r' % self._value) if not self.lazy else 'value=(lazy)')
         return '%s(%s)' % (self.__class__.__name__, ", ".join(values))
+
+    @property
+    def absolute_offset(self):
+        """Returns the absolute offset of the field in the stream."""
+        if self.context.parent_field is not None:
+            return self.context.parent_field.absolute_offset + self.offset
+        return self.offset
 
     @property
     def resolved(self):

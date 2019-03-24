@@ -129,7 +129,7 @@ class ArrayField(WrappedFieldMixin, Field):
 
         field_start = stream.tell()
         substream = Substream(stream)
-        subcontext = context.__class__(parent=context, flat=True)
+        subcontext = context.__class__(parent=context, flat=True, parent_field=context.fields.get(self.name))
         if self.name in context.fields:
             context.fields[self.name].subcontext = subcontext
 
@@ -148,7 +148,7 @@ class ArrayField(WrappedFieldMixin, Field):
                 pass
 
             # Create a new 'field' with a different name, and set it in our context
-            subcontext.fields[i] = self.base_field.field_context(context, field_name=i)
+            subcontext.fields[i] = self.base_field.field_context(subcontext, field_name=i)
 
             try:
                 with self.base_field.with_name(i) as field_instance:
@@ -193,7 +193,7 @@ class ArrayField(WrappedFieldMixin, Field):
 
         field_start = stream.tell()
         substream = Substream(stream)
-        subcontext = context.__class__(parent=context, flat=True)
+        subcontext = context.__class__(parent=context, flat=True, parent_field=context.fields.get(self.name))
         if self.name in context.fields:
             context.fields[self.name].subcontext = subcontext
 
@@ -202,7 +202,7 @@ class ArrayField(WrappedFieldMixin, Field):
                 substream = Substream(stream, stop=field_start + length)
 
             # Create a new 'field' with a different name, and set it in our context
-            subcontext.fields[i] = self.base_field.field_context(context, field_name=i, value=val)
+            subcontext.fields[i] = self.base_field.field_context(subcontext, field_name=i, value=val)
 
             with self.base_field.with_name(i) as field_instance:
                 with _recapture(WriteError(f"Error while seeking the start of item {i} in field {self}")):
