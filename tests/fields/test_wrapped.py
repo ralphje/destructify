@@ -268,8 +268,9 @@ class PseudoMemberEnumMixinTest(DestructifyTestCase):
             FOO = 'foo'
 
         self.assertEqual("<PseudoEnum.FOO: 'foo'>", repr(PseudoEnum('foo')))
-        self.assertEqual("PseudoEnum.'bar'", str(PseudoEnum('bar')))
         if sys.version_info < (3, 7):
+            self.assertEqual("PseudoEnum.None", str(PseudoEnum('bar')))
             self.assertEqual("<PseudoEnum.None: 'bar'>", repr(PseudoEnum('bar')))
         else:
+            self.assertEqual("PseudoEnum.'bar'", str(PseudoEnum('bar')))
             self.assertEqual("<PseudoEnum.'bar': 'bar'>", repr(PseudoEnum('bar')))
