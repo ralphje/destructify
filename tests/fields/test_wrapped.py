@@ -263,20 +263,13 @@ class PseudoMemberEnumMixinTest(DestructifyTestCase):
         self.assertIs(PseudoEnum('bar'), PseudoEnum('bar'))
         self.assertEqual('bar', PseudoEnum('bar').value)
 
-    @unittest.skipIf(sys.version < (3, 7), "Different results in Python 3.6")
     def test_pseudo_str_repr(self):
         class PseudoEnum(PseudoMemberEnumMixin, enum.Enum):
             FOO = 'foo'
 
         self.assertEqual("<PseudoEnum.FOO: 'foo'>", repr(PseudoEnum('foo')))
         self.assertEqual("PseudoEnum.'bar'", str(PseudoEnum('bar')))
-        self.assertEqual("<PseudoEnum.'bar': 'bar'>", repr(PseudoEnum('bar')))
-
-    @unittest.skipUnless(sys.version < (3, 7), "Different results in Python 3.6")
-    def test_pseudo_str_repr(self):
-        class PseudoEnum(PseudoMemberEnumMixin, enum.Enum):
-            FOO = 'foo'
-
-        self.assertEqual("<PseudoEnum.FOO: 'foo'>", repr(PseudoEnum('foo')))
-        self.assertEqual("PseudoEnum.'bar'", str(PseudoEnum('bar')))
-        self.assertEqual("<PseudoEnum.None: 'bar'>", repr(PseudoEnum('bar')))
+        if sys.version_info < (3, 7):
+            self.assertEqual("<PseudoEnum.None: 'bar'>", repr(PseudoEnum('bar')))
+        else:
+            self.assertEqual("<PseudoEnum.'bar': 'bar'>", repr(PseudoEnum('bar')))
