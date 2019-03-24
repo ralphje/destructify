@@ -434,11 +434,28 @@ class SwitchField(Field):
             self.other.bound_structure = self.bound_structure
         super().initialize()
 
+    def __len__(self):
+        lengths = []
+        for f in self.cases.values():
+            lengths.append(len(f))
+        if self.other is not None:
+            lengths.append(len(self.other))
+        if not lengths or not all(e == lengths[0] for e in lengths):
+            raise ImpossibleToCalculateLengthError()
+        return lengths[0]
+
     get_switch = partialmethod(Field._get_property, 'switch')
 
     @property
     def ctype(self):
         return "switch {}".format(self.name)
+
+    def seek_end(self, stream, context, offset):
+        switch = self.get_switch(context)
+        if switch in self.cases:
+            return self.cases[switch].seek_end(stream, context, offset)
+        if self.other is not None:
+            return self.other.seek_end(stream, context, offset)
 
     def from_stream(self, stream, context):
         switch = self.get_switch(context)
