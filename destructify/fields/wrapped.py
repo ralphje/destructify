@@ -269,3 +269,36 @@ class EnumField(WrappedFieldMixin, Field):
             except KeyError:
                 pass
         return self.base_field.encode_to_stream(stream, value, context)
+
+
+class PseudoMemberEnumMixin:
+    """Mixin for :class:`enum.Enum` types to automatically create pseudo-members when encountered.
+    Do *not* combine with :class:`enum.Flag`.
+    """
+
+    @classmethod
+    def _missing_(cls, value):
+        pseudo_member = cls._value2member_map_.get(value, None)
+        if pseudo_member is None:
+            # construct a singleton enum pseudo-member
+            pseudo_member = object.__new__(cls)
+            pseudo_member._name_ = None
+            pseudo_member._value_ = value
+            # use setdefault in case another thread already created a composite
+            # with this value
+            pseudo_member = cls._value2member_map_.setdefault(value, pseudo_member)
+        return pseudo_member
+
+    def __repr__(self):
+        cls = self.__class__
+        if self._name_ is not None:
+            return '<%s.%s: %r>' % (cls.__name__, self._name_, self._value_)
+        else:
+            return '<%s.%r: %r>' % (cls.__name__, self._value_, self._value_)
+
+    def __str__(self):
+        cls = self.__class__
+        if self._name_ is not None:
+            return '%s.%s' % (cls.__name__, self._name_)
+        else:
+            return '%s.%r' % (cls.__name__, self._value_)

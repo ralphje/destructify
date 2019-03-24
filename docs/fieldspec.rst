@@ -668,3 +668,14 @@ EnumField
        ...
        >>> EnumStructure.from_bytes(b"\x05")
        <EnumStructure: EnumStructure(perms=<Permissions.R|X: 5>)>
+
+.. autoclass:: PseudoMemberEnumMixin
+
+   To ease the creation of Enum objects that create pseudo-elements when a value does not exist, it is possible to use
+   this mixin::
+
+       >>> class PseudoEnum(PseudoMemberEnumMixin, enum.Enum):
+       ...    FOO = 'foo'
+       ...
+       >>> PseudoEnum('bar')
+       <PseudoEnum.'bar': 'BAR'>

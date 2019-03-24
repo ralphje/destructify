@@ -3,7 +3,7 @@ import unittest
 
 from destructify import Structure, BitField, FixedLengthField, DefinitionError, WrappedFieldMixin, Field, EnumField, \
     IntegerField, ByteField, ConditionalField, ArrayField, SwitchField, ConstantField, WrongMagicError, WriteError, \
-    ParseError, io, ParsingContext, StreamExhaustedError
+    ParseError, io, ParsingContext, StreamExhaustedError, PseudoMemberEnumMixin
 from tests import DestructifyTestCase
 
 
@@ -251,3 +251,21 @@ class EnumFieldTest(DestructifyTestCase):
         self.assertFieldToStreamEqual(b'b', b'b', field)
         with self.assertRaises(TypeError):
             self.assertFieldToStreamEqual(b'b', 'x', field)
+
+
+class PseudoMemberEnumMixinTest(DestructifyTestCase):
+    def test_pseudo_created(self):
+        class PseudoEnum(PseudoMemberEnumMixin, enum.Enum):
+            FOO = 'foo'
+
+        self.assertEqual(PseudoEnum.FOO, PseudoEnum('foo'))
+        self.assertIs(PseudoEnum('bar'), PseudoEnum('bar'))
+        self.assertEqual('bar', PseudoEnum('bar').value)
+
+    def test_pseudo_str_repr(self):
+        class PseudoEnum(PseudoMemberEnumMixin, enum.Enum):
+            FOO = 'foo'
+
+        self.assertEqual("<PseudoEnum.'bar': 'bar'>", repr(PseudoEnum('bar')))
+        self.assertEqual("<PseudoEnum.FOO: 'foo'>", repr(PseudoEnum('foo')))
+        self.assertEqual("PseudoEnum.'bar'", str(PseudoEnum('bar')))

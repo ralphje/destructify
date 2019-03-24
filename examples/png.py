@@ -3,6 +3,14 @@ import enum
 from binascii import crc32
 
 
+class ChunkType(destructify.PseudoMemberEnumMixin, enum.Enum):
+    IHDR = "IHDR"
+    IEND = "IEND"
+    TEXT = "tEXt"
+    PHYS = "pHYs"
+    PLTE = "PLTE"
+
+
 class ColorType(enum.IntEnum):
     GrayScale = 0
     RGB = 2
@@ -31,6 +39,16 @@ class PngChunk_tEXt(destructify.Structure):
     text = destructify.StringField(length=lambda f: f._.length - (len(f.keyword) + 1), encoding="latin1")
 
 
+class PaletteEntry(destructify.Structure):
+    red = destructify.IntegerField(length=1)
+    green = destructify.IntegerField(length=1)
+    blue = destructify.IntegerField(length=1)
+
+
+class PngChunk_PLTE(destructify.Structure):
+    palettes = destructify.ArrayField(destructify.StructureField(PaletteEntry), length=-1)
+
+
 class PhysUnit(enum.IntEnum):
     Unknown = 0
     Meter = 1
@@ -42,46 +60,46 @@ class PngChunk_pHYs(destructify.Structure):
     unit = destructify.EnumField(destructify.IntegerField(1), PhysUnit)
 
 
-def check_crc(f):
+def calculate_crc(f):
     crc = 0
     crc = crc32(f._context.fields['chunk_type'].raw, crc)
     crc = crc32(f._context.fields['chunk_data'].raw, crc)
-    return crc == f.crc
+    return crc
 
 
 class PngChunk(destructify.Structure):
     length = destructify.IntegerField(4, "big")
-    chunk_type = destructify.StringField(length=4, encoding="ascii")
+    chunk_type = destructify.EnumField(destructify.StringField(length=4, encoding="ascii"), enum=ChunkType)
     chunk_data = destructify.SwitchField(
         cases={
-            "IHDR": destructify.StructureField(PngChunk_IHDR),
-            "IEND": destructify.ConstantField(b""),
-            "tEXt": destructify.StructureField(PngChunk_tEXt),
-            "pHYs": destructify.StructureField(PngChunk_pHYs),
+            ChunkType.IHDR: destructify.StructureField(PngChunk_IHDR, length='length'),
+            ChunkType.IEND: destructify.ConstantField(b""),
+            ChunkType.TEXT: destructify.StructureField(PngChunk_tEXt, length='length'),
+            ChunkType.PHYS: destructify.StructureField(PngChunk_pHYs, length='length'),
+            ChunkType.PLTE: destructify.StructureField(PngChunk_PLTE, length='length'),
         },
         switch="chunk_type",
         other=destructify.FixedLengthField("length")
     )
-
-    # TODO: Calculate CRC when building
-    crc = destructify.IntegerField(4, "big")
+    crc = destructify.IntegerField(4, "big", override=lambda f, v: calculate_crc(f))
 
     class Meta:
         capture_raw = True
         checks = [
             lambda f: f._context.fields['chunk_data'].length == f.length,
-            lambda f: check_crc(f),
+            lambda f: calculate_crc(f) == f.crc,
         ]
 
 
 class PngFile(destructify.Structure):
     magic = destructify.ConstantField(b"\x89PNG\r\n\x1a\n")
-    chunks = destructify.ArrayField(destructify.StructureField(PngChunk), length=-1)
+    chunks = destructify.ArrayField(destructify.StructureField(PngChunk), length=-1,
+                                    until=lambda c, v: v.chunk_type == "IEND")
 
     class Meta:
         checks = [
-            lambda f: f.chunks[0].chunk_type == "IHDR",
-            lambda f: f.chunks[-1].chunk_type == "IEND",
+            lambda f: f.chunks[0].chunk_type == ChunkType.IHDR,
+            lambda f: f.chunks[-1].chunk_type == ChunkType.IEND,
         ]
 
 
