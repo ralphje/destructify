@@ -127,11 +127,8 @@ class ArrayField(WrappedFieldMixin, Field):
         elif self.length is not None:
             length = self.get_length(context)
 
-        field_start = stream.tell()
-        substream = Substream(stream)
-        subcontext = context.__class__(parent=context, flat=True, parent_field=context.fields.get(self.name))
-        if self.name in context.fields:
-            context.fields[self.name].subcontext = subcontext
+        substream = Substream(stream, length=length if length is not None and length >= 0 else None)
+        subcontext = context.fields[self.name].create_subcontext(stream=substream, flat=True)
 
         for i in itertools.count():
             if count is not None:
@@ -142,7 +139,6 @@ class ArrayField(WrappedFieldMixin, Field):
                 # if length is positive, we read <length> amount of bytes
                 if total_consumed >= length:
                     break
-                substream = Substream(stream, stop=field_start + length)
             else:
                 # for unbounded read, we expect to encounter an exception somewhere down the line
                 pass
@@ -153,7 +149,7 @@ class ArrayField(WrappedFieldMixin, Field):
             try:
                 with self.base_field.with_name(i) as field_instance:
                     with _recapture(ParseError(f"Error while seeking the start of item {i} in field {self}")):
-                        offset = field_instance.seek_start(substream, subcontext, field_start)
+                        offset = field_instance.seek_start(substream, subcontext, total_consumed)
 
                     with _recapture(ParseError(f"Error while parsing item {i} in field {self}")):
                         res, consumed = field_instance.decode_from_stream(substream, subcontext)
@@ -163,7 +159,7 @@ class ArrayField(WrappedFieldMixin, Field):
             except StreamExhaustedError:
                 if length is not None and length < 0:
                     # if we have unbounded read, we should just discard the error, otherwise reraise it
-                    stream.seek(field_start + total_consumed)
+                    substream.seek(total_consumed)
                     del subcontext.fields[i]
                     break
                 raise
@@ -191,22 +187,16 @@ class ArrayField(WrappedFieldMixin, Field):
         elif self.length is not None:
             length = self.get_length(context)
 
-        field_start = stream.tell()
-        substream = Substream(stream)
-        subcontext = context.__class__(parent=context, flat=True, parent_field=context.fields.get(self.name))
-        if self.name in context.fields:
-            context.fields[self.name].subcontext = subcontext
+        substream = Substream(stream, length=length if length is not None and length >= 0 else None)
+        subcontext = context.fields[self.name].create_subcontext(stream=substream, flat=True)
 
         for i, val in enumerate(value):
-            if length is not None and length >= 0:
-                substream = Substream(stream, stop=field_start + length)
-
             # Create a new 'field' with a different name, and set it in our context
             subcontext.fields[i] = self.base_field.field_context(subcontext, field_name=i, value=val)
 
             with self.base_field.with_name(i) as field_instance:
                 with _recapture(WriteError(f"Error while seeking the start of item {i} in field {self}")):
-                    offset = field_instance.seek_start(substream, subcontext, field_start)
+                    offset = field_instance.seek_start(substream, subcontext, total_written)
 
                 with _recapture(WriteError(f"Error while parsing item {i} in field {self}")):
                     written = field_instance.encode_to_stream(substream, val, subcontext)

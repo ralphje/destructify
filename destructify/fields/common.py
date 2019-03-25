@@ -380,8 +380,7 @@ class StructureField(Field):
             length = self.get_length(context)
 
         substream = Substream(stream, length=length)
-        subcontext = context.__class__(parent=context, parent_field=context.fields.get(self.name))
-        context.fields[self.name].subcontext = subcontext
+        subcontext = context.fields[self.name].create_subcontext(stream=substream)
 
         res, consumed = self.structure.from_stream(substream, context=subcontext)
 
@@ -400,9 +399,7 @@ class StructureField(Field):
             length = self.get_length(context)
 
         substream = Substream(stream, length=length)
-        subcontext = context.__class__(parent=context, parent_field=context.fields.get(self.name))
-        context.fields[self.name].subcontext = subcontext
-
+        subcontext = context.fields[self.name].create_subcontext(stream=substream)
         written = value.to_stream(substream, subcontext)
 
         if length is not None and written < length:
