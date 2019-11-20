@@ -32,10 +32,10 @@ Contents:
 
    structure
    parsing
+   fieldspec
    fields
    gui
    api
-   fieldspec
    changelog
 
 

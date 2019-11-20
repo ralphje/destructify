@@ -27,16 +27,19 @@ fields. Custom fields should attempt to adhere to these as well:
    When a value, that is read by a field, is written and read again by that same field, the Python representation
    must be the same.
 
-What does it mean? In the most simple case, the byte and Python representation are linked to each other. This means,
+What does this mean? In the most simple case, the byte and Python representation are linked to each other. This means,
 for instance, that writing ``b'foo'`` to a :class:`BytesField`, will result in a ``b'foo'`` in the stream, and no other
-value has the same property.
+Python value results in that same value being written. Likewise, the byte representation of ``b'foo'`` is the only
+way to get the ``b'foo'`` Python value.
 
-In some cases, this does not hold. This is the case when different inputs converge to the same representation.
-For instance, considering a :class:`VariableLengthIntegerField`, the byte
-representation of a value may be prepended with ``0x80`` bytes and they do not change the value of the field. So, when
-some other writer writes these pointless bytes, Destructify has to ignore them. When writing a value, Destructify will
-then opt to write the least amount of bytes possible, meaning that the byte representation differs from the value that
-was read. However, Destructify can read this value again and it will be the same Python representation.
+In some cases, this property of simple idemptency can not hold. This is the case when different inputs converge to the
+same representation. For instance, considering a :class:`VariableLengthIntegerField`, the byte
+representation of a value may be prepended with ``0x80`` bytes and they do not change the value of the field. For
+instance, with this field, the stream values of ``b'\x7f`` and ``b'\x80\x80\x7f`` both represent the same Python value,
+``0x7f``. So, when some other writer writes these pointless bytes, Destructify has to ignore them. When writing a
+value, Destructify will then opt to write the least amount of bytes possible, meaning that the byte representation
+differs from the value that was read. However, Destructify can read this value again and it will be the same Python
+representation.
 
 Similarly, a field may allow different types to be written to a stream. For instance, the :class:`EnumField` allows you
 to write arbitrary values to :class:`Field.to_stream`, but will always read them as :class:`enum.Enum`, and also allows
@@ -151,8 +154,14 @@ beforehand (i.e. without a context)::
             return 4
 
 Note that you must return either a positive integer or raise an error. If your field depends on another field to
-determine its length, you should raise an error: you can only implement this field if you know its value regardless
-of the parsing state.
+determine its length, you should raise an error: you can only implement this support for a field if you know its value
+regardless of the parsing context.
+
+.. note::
+
+   To support :class:`BitField`, we internally override ``_length_sum`` to allow returning non-integer values as a
+   result for ``__len__``. If your use case requires sizes in bits, you could subclass :class:`BitField`. Overriding
+   ``_length_sum`` is not recommended.
 
 Supporting lazy read
 ====================
@@ -170,9 +179,9 @@ However, there are cases where we can simply read a little bit of data to determ
 skip over the remainder of the field without parsing the entire field. This can be implemented by writing your own
 :meth:`Field.seek_end`, which is more efficient than reading the entire field.
 
-For instance, say that we have want to implement how UTF-8 encodes its length: if the first byte starts with ``0b0``,
-it is a single byte-value, if the first byte starts with ``0b110``, it is a two-byte value, ``0b1110`` a three-byte
-value and so forth. You could write a field like this::
+For instance, say that we want to implement how UTF-8 encodes the character length: if the first byte starts with
+``0b0``, it is a single byte-value, if the first byte starts with ``0b110``, it is a two-byte value, ``0b1110`` a
+three-byte value and so forth. You could write a field like this::
 
     class UTF8CharacterField(destructify.Field):
         def _get_length_from_first_byte(self, value):
@@ -198,9 +207,13 @@ This still reads the first byte of the structure, but does not need to parse the
 
 Testing your field
 ==================
-Now, the only thing left is writing unittests for this. Since this field is mostly simple idempotent, we can use these
-simple tests to verify it all works according to plan, You may notice that the only simple idempotency exception is
-that values may be repended with ``80`` bytes as that does not change its value::
+Now, the only thing left is writing unittests for the field you have created. Testing for simple idempotency is the
+easiest, as we can compare the byte values and structure easily. You can use :class:`DestructifyTestCase` for easy
+access to some helper methods to allow you writing easy tests.
+
+When this does not entirely hold, for instance for the case of the :class:`VariableLengthIntegerField`, where byte
+values can be prepended with ``0x80`` without changing the Python representation, you can write more elaborate tests.
+The following shows how you'd test this field::
 
     class VariableLengthIntegerFieldTest(DestructifyTestCase):
         def test_basic(self):
