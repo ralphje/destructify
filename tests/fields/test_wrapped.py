@@ -4,7 +4,7 @@ import unittest
 
 from destructify import Structure, BitField, FixedLengthField, DefinitionError, WrappedFieldMixin, Field, EnumField, \
     IntegerField, ByteField, ConditionalField, ArrayField, SwitchField, ConstantField, WrongMagicError, WriteError, \
-    ParseError, io, ParsingContext, StreamExhaustedError, PseudoMemberEnumMixin
+    ParseError, io, ParsingContext, StreamExhaustedError, PseudoMemberEnumMixin, StructureField
 from tests import DestructifyTestCase
 
 
@@ -30,7 +30,7 @@ class BaseFieldTestCase(unittest.TestCase):
         class Struct(Structure):
             thing = MyField(BitField(1))
 
-        self.assertEqual("thing.inner", Struct._meta.fields[0].base_field.name)
+        self.assertEqual("thing", Struct._meta.fields[0].base_field.name)
         self.assertEqual("Struct.thing.inner", Struct._meta.fields[0].base_field.full_name)
         self.assertIs(Struct._meta.fields[0].bound_structure, Struct._meta.fields[0].base_field.bound_structure)
 
@@ -107,6 +107,15 @@ class ConditionalFieldTest(DestructifyTestCase):
         self.assertFieldStreamEqual(b'\x11', 0x01,
                                     ConditionalField(IntegerField(1, encoder=lambda x: x+0x10, decoder=lambda x: x-0x10),
                                                      condition=True))
+
+    def test_conditional_with_structure_field(self):
+        class X(Structure):
+            f = ByteField()
+
+        class ConditionalStructure(Structure):
+            value = ConditionalField(StructureField(X), condition=True)
+
+        self.assertStructureStreamEqual(b'\x00', ConditionalStructure(value=X(f=0)))
 
 
 class ArrayFieldTest(DestructifyTestCase):

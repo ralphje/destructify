@@ -27,7 +27,8 @@ class WrappedFieldMixin(object):
                 self.override = self.base_field.override
 
     def initialize(self):
-        self.base_field.name = self.name + ".inner"
+        self.base_field.outer_field = self
+        self.base_field.name = self.name
         self.base_field.bound_structure = self.bound_structure
 
         super().initialize()

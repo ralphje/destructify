@@ -48,6 +48,7 @@ class Field:
         self.offset = offset
         self.skip = skip
         self.lazy = lazy
+        self.outer_field = None  # used by field wrappers to specify the outer field
 
         if offset is not None and skip is not None:
             raise DefinitionError("The field {} specifies both 'offset' and 'skip', which is impossible."
@@ -87,9 +88,10 @@ class Field:
     @property
     def full_name(self):
         """The full name of this :class:`Field`."""
+        name = self.name if self.outer_field is None else self.name + ".inner"
         if self.bound_structure is not None:
-            return self.bound_structure._meta.structure_name + "." + self.name
-        return self.name
+            return self.bound_structure._meta.structure_name + "." + name
+        return name
 
     def _seek_length(self):
         """The length of the seek for this field."""
