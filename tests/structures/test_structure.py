@@ -4,7 +4,7 @@ from unittest import mock
 import lazy_object_proxy
 
 from destructify import ParsingContext, Structure, FixedLengthField, StringField, TerminatedField, IntegerField, \
-    Substream, CheckError
+    Substream, CheckError, WriteError, ImpossibleToCalculateLengthError, Field
 from tests import DestructifyTestCase
 
 
@@ -57,6 +57,67 @@ class ChecksTest(DestructifyTestCase):
         with self.assertRaises(CheckError):
             TestStructure.from_bytes(b"abcde12345")
         TestStructure.from_bytes(b"abcdeabcde")
+
+
+class LengthTest(DestructifyTestCase):
+    def test_length_empty_structure(self):
+        class TestStructure(Structure):
+            pass
+
+        self.assertEqual(0, len(TestStructure))
+
+    def test_length_sum_is_called(self):
+        class TestStructure(Structure):
+            x = Field()
+            y = Field()
+
+        # Note: we patch the return value of the length, so it does not matter what we specify above
+        with mock.patch.object(TestStructure._meta.fields[0], '_length_sum', side_effect=lambda x: 1) as mock_method, \
+            mock.patch.object(TestStructure._meta.fields[1], '_length_sum', side_effect=lambda x: 3) as mock_method2:
+            len(TestStructure)
+
+        mock_method.assert_called_once_with(0)
+        mock_method2.assert_called_once_with(1)
+
+    def test_length_sum_exception_when_impossible_to_calculate(self):
+        class TestStructure(Structure):
+            x = Field()
+            y = Field()
+
+        # Note: we patch the return value of the length, so it does not matter what we specify above
+        with mock.patch.object(TestStructure._meta.fields[0], '_length_sum', side_effect=ImpossibleToCalculateLengthError):
+            with self.assertRaises(ImpossibleToCalculateLengthError):
+                len(TestStructure)
+
+    def test_length_option_in_len_function(self):
+        class TestStructure(Structure):
+            class Meta:
+                length = 3
+
+        self.assertEqual(3, len(TestStructure))
+
+        class TestStructure2(Structure):
+            a = FixedLengthField(length=5)
+
+            class Meta:
+                length = 3
+
+        self.assertEqual(3, len(TestStructure2))
+
+    def test_length_option_in_unbounded_field(self):
+        class TestStructure(Structure):
+            a = FixedLengthField(length=-1)
+
+            class Meta:
+                length = 3
+
+        self.assertEqual(TestStructure(a=b"a"), TestStructure.from_bytes(b"a"))
+        self.assertEqual(TestStructure(a=b"aaa"), TestStructure.from_bytes(b"aaaaaaaaaaaa"))
+
+        with self.assertRaises(WriteError):
+            TestStructure(a=b"aaaaaaaaaa").to_bytes()
+        self.assertEqual(b"aaa", TestStructure(a=b"aaa").to_bytes())
+        self.assertEqual(b"a", TestStructure(a=b"a").to_bytes())
 
 
 class InitializeFinalizeTest(DestructifyTestCase):

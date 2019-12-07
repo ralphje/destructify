@@ -265,3 +265,14 @@ The following options are available:
 .. attribute:: StructureOptions.capture_raw
 
    If True, requests the :class:`ParsingContext` to capture raw bytes for all fields in the structure.
+
+.. attribute:: StructureOptions.length
+
+   Defines the length of the structure. This can be useful if the length of your structure cannot be calculated (e.g.
+   when the length of two fields is dynamic, but always sums up to be the same) or if you want to limit unbounded reads
+   in some fields.
+
+   This option will affect ``len(Structure)`` as well as all parsing and writing operations. When used in
+   conjunction with :attr:`StructureField.length`, both are applied, i.e. the shortest one will prevail.
+
+   Note that specifying a too short length will result in :exc:`StreamExhaustedError` exceptions.

@@ -2,9 +2,10 @@ import contextlib
 import inspect
 import io
 
-from ..exceptions import CheckError, DestructifyError, WriteError, ParseError, ImpossibleToCalculateLengthError
-from ..parsing import ParsingContext, FieldContext
+from ..exceptions import CheckError, WriteError, ParseError, ImpossibleToCalculateLengthError
+from ..parsing import ParsingContext
 from ..parsing.bitstream import BitStream
+from ..parsing.substream import Substream
 from .options import StructureOptions
 
 
@@ -62,6 +63,10 @@ class StructureBase(type):
         """Class method that allows you to do ``len(Structure)`` to retrieve the size of a :class:`Structure`."""
         if not hasattr(cls, '_meta'):
             return 0
+
+        if cls._meta.length is not None:
+            return cls._meta.length
+
         total = 0
         for f in cls._meta.fields:
             total = f._length_sum(total)
@@ -166,6 +171,10 @@ class Structure(metaclass=StructureBase):
         if context is None:
             context = ParsingContext()
 
+        # wrap the stream in a Substream to enable the length specifier to work
+        if cls._meta.length is not None:
+            context.stream = stream = Substream(stream, length=cls._meta.length)
+
         # wrap the stream in a BitStream to enable bit-based methods
         context.stream = stream = BitStream(stream)
 
@@ -254,6 +263,10 @@ class Structure(metaclass=StructureBase):
         """
         if context is None:
             context = ParsingContext()
+
+        # wrap the stream in a Substream to enable the length specifier to work
+        if self._meta.length is not None:
+            context.stream = stream = Substream(stream, length=self._meta.length)
 
         # wrap the stream in a BitStream to enable bit-based methods
         context.stream = stream = BitStream(stream)

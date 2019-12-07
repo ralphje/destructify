@@ -14,6 +14,7 @@ class StructureOptions:
         self.alignment = None
         self.checks = ()
         self.capture_raw = False
+        self.length = None
 
     def contribute_to_class(self, cls, name):
         setattr(cls, '_meta', self)
@@ -28,7 +29,7 @@ class StructureOptions:
                 if name.startswith('_'):
                     del meta_attrs[name]
             for attr_name in ('structure_name', 'byte_order', 'encoding',
-                              'alignment', 'checks', 'capture_raw'):
+                              'alignment', 'checks', 'capture_raw', 'length'):
                 if attr_name in meta_attrs:
                     setattr(self, attr_name, meta_attrs.pop(attr_name))
                 elif hasattr(self.meta, attr_name):
