@@ -5,7 +5,7 @@ from functools import partialmethod
 from . import Field
 from .. import Substream
 from ..exceptions import DefinitionError, WriteError, StreamExhaustedError, ImpossibleToCalculateLengthError, ParseError
-from ..parsing.bitstream import BitStream
+from ..parsing.streams import BitStream
 
 
 class BytesField(Field):

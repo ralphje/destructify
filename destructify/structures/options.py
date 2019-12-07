@@ -67,6 +67,12 @@ class StructureOptions:
                 return field
         raise KeyError("Field not found")
 
+    def has_field_type(self, cls):
+        for field in self.fields:
+            if isinstance(field, cls):
+                return True
+        return False
+
     def initialize_fields(self):
         for field in self.fields:
             field.initialize()

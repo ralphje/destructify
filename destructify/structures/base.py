@@ -2,10 +2,10 @@ import contextlib
 import inspect
 import io
 
+from ..fields import BitField
 from ..exceptions import CheckError, WriteError, ParseError, ImpossibleToCalculateLengthError
-from ..parsing import ParsingContext
-from ..parsing.bitstream import BitStream
-from ..parsing.substream import Substream
+from ..parsing import ParsingContext, CaptureStream
+from ..parsing.streams import BitStream, Substream
 from .options import StructureOptions
 
 
@@ -152,6 +152,24 @@ class Structure(metaclass=StructureBase):
         pass
 
     @classmethod
+    def _prepare_stream(cls, stream):
+        """Prepares the stream for parsing with this Structure by wrapping it in the necessary stream wrappers."""
+
+        # wrap the stream in a Substream to enable the length specifier to work
+        if cls._meta.length is not None:
+            stream = Substream(stream, length=cls._meta.length)
+
+        # wrap the stream in CaptureStream if capture_raw is True
+        if cls._meta.capture_raw:
+            stream = CaptureStream(stream)
+
+        # wrap the stream in a BitStream to enable bit-based methods
+        if cls._meta.has_field_type(BitField):
+            stream = BitStream(stream)
+
+        return stream
+
+    @classmethod
     def from_stream(cls, stream, context=None):
         """Reads a stream and converts it to a :class:`Structure` instance. You can explicitly provide a
         :class:`ParsingContext`, otherwise one will be created automatically.
@@ -171,12 +189,7 @@ class Structure(metaclass=StructureBase):
         if context is None:
             context = ParsingContext()
 
-        # wrap the stream in a Substream to enable the length specifier to work
-        if cls._meta.length is not None:
-            context.stream = stream = Substream(stream, length=cls._meta.length)
-
-        # wrap the stream in a BitStream to enable bit-based methods
-        context.stream = stream = BitStream(stream)
+        context.stream = stream = cls._prepare_stream(stream)
 
         # Fill the context with all fields from the context
         context.initialize_from_meta(cls._meta)
@@ -264,12 +277,7 @@ class Structure(metaclass=StructureBase):
         if context is None:
             context = ParsingContext()
 
-        # wrap the stream in a Substream to enable the length specifier to work
-        if self._meta.length is not None:
-            context.stream = stream = Substream(stream, length=self._meta.length)
-
-        # wrap the stream in a BitStream to enable bit-based methods
-        context.stream = stream = BitStream(stream)
+        context.stream = stream = self._prepare_stream(stream)
 
         # Fill the context with all fields from the context
         context.initialize_from_meta(self._meta, structure=self)
@@ -305,7 +313,8 @@ class Structure(metaclass=StructureBase):
             offset += written
             max_offset = max(offset, max_offset)
 
-        offset += stream.finalize()
+        if hasattr(stream, 'finalize'):
+            offset += stream.finalize()
         max_offset = max(offset, max_offset)
 
         context.done = True
@@ -313,19 +322,19 @@ class Structure(metaclass=StructureBase):
         return max_offset - start_offset
 
     @classmethod
-    def from_bytes(cls, bytes):
+    def from_bytes(cls, bytes, context=None):
         """A short-hand method of calling :meth:`from_stream`, using bytes rather than a stream, and returns the
         constructed :class:`Structure` immediately.
         """
 
-        return cls.from_stream(io.BytesIO(bytes))[0]
+        return cls.from_stream(io.BytesIO(bytes), context)[0]
 
-    def to_bytes(self):
+    def to_bytes(self, context=None):
         """A short-hand method of calling :meth:`to_stream`, writing to bytes rather than to a stream. It returns the
         constructed bytes immediately.
         """
         bytesio = io.BytesIO()
-        self.to_stream(bytesio)
+        self.to_stream(bytesio, context)
         return bytesio.getvalue()
 
     @classmethod

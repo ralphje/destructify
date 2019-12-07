@@ -1,8 +1,9 @@
 import io
 import types
 
-from destructify import NOT_PROVIDED
-from destructify.exceptions import StreamExhaustedError, UnknownDependentFieldError, MisalignedFieldError
+from .. import NOT_PROVIDED
+from .streams import CaptureStream
+from ..exceptions import UnknownDependentFieldError
 
 
 class ParsingContext:
@@ -196,8 +197,12 @@ class FieldContext:
             self._capture_raw(self.context.stream)
 
     def _capture_raw(self, stream):
-        stream.seek(-self.length, io.SEEK_CUR)
-        self.raw = stream.read(self.length)
+        # If the stream is a CaptureStream, we can read the data that is inserted.
+        if hasattr(stream, 'cache_read_last'):
+            self.raw = stream.cache_read_last(self.length)
+        else:
+            stream.seek(-self.length, io.SEEK_CUR)
+            self.raw = stream.read(self.length)
 
     def create_subcontext(self, **kwargs):
         self.subcontext = self.context.__class__(parent=self.context, parent_field=self, **kwargs)

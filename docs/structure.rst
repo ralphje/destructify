@@ -264,7 +264,8 @@ The following options are available:
 
 .. attribute:: StructureOptions.capture_raw
 
-   If True, requests the :class:`ParsingContext` to capture raw bytes for all fields in the structure.
+   If True, requests the :class:`ParsingContext` to capture raw bytes for all fields in the structure. This will add a
+   stream wrapper when data is read or written from this structure, to prevent the stream from having to be read twice.
 
 .. attribute:: StructureOptions.length
 

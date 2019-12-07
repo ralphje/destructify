@@ -1,7 +1,7 @@
 import io
 import unittest
 
-from destructify import Substream
+from destructify import Substream, CaptureStream
 
 
 class TellableStream:
@@ -155,3 +155,25 @@ class SubstreamTest(unittest.TestCase):
         self.assertEqual(False, hasattr(stream, 'peek'))
         stream.peek = lambda: None
         self.assertEqual(True, hasattr(stream, 'peek'))
+
+
+class CaptureStreamTest(unittest.TestCase):
+    def test_readable(self):
+        cs = CaptureStream(io.BytesIO(b"asdfasdfasddf"))
+        cs.seek(5)
+        self.assertEqual(b"sdfasddf", cs.read(8))
+        self.assertEqual(b"sdfasddf", cs.cache_read_last(8))
+        self.assertEqual(b"sdfasddf", cs.cache_read_last(8))
+
+    def test_read_unseekable(self):
+        cs = CaptureStream(UnseekableStream(io.BytesIO(b"asdfasdfasddf")))
+        self.assertEqual(b"asdf", cs.read(4))
+        self.assertEqual(b"asdf", cs.cache_read_last(4))
+        self.assertEqual(b"asdf", cs.cache_read_last(4))
+
+    def test_write(self):
+        cs = CaptureStream(io.BytesIO(b"asdfasdfasddf"))
+        cs.seek(5)
+        cs.write(b"borp")
+        self.assertEqual(b"borp", cs.cache_read_last(4))
+        self.assertEqual(b"borp", cs.cache_read_last(4))

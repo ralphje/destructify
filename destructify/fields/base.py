@@ -1,7 +1,7 @@
 import inspect
 import io
 from contextlib import contextmanager
-from functools import total_ordering, partialmethod, partial
+from functools import total_ordering, partial
 
 from .. import NOT_PROVIDED, FieldContext
 from ..exceptions import ImpossibleToCalculateLengthError, DefinitionError

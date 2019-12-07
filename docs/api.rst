@@ -168,6 +168,21 @@ ParsingContext
       Indicates that the parent context should be considered part of this context as well. This allows you to reference
       fields in both contexts transparently without the need of calling :attr:`parent`.
 
+   .. attribute:: ParsingContext.stream
+
+      The stream that is used during parsing.
+
+   .. attribute:: ParsingContext.capture_raw
+
+      Indicates whether :attr:`FieldContext.raw` should be filled. This is useful if you need to calculate values based
+      on the raw contents of the field, for instance, for calculating checksums.
+
+      Note that this attribute cannot change the stream used by the parser. This means that the context cannot add the
+      methods of the :class:`CaptureStream` stream wrapper, which caches values written to and read from the stream,
+      and must rely on a call to :func:`seek` on the stream to read the raw value.
+
+      It is recommended to use :attr:`StructureOptions.capture_raw`, as this can change the stream.
+
    .. autoattribute:: ParsingContext.root
 
    .. attribute:: ParsingContext.fields
@@ -247,3 +262,5 @@ FieldContext
    .. attribute:: FieldContext.subcontext
 
       This may be set if the field created a subcontext to parse its inner field(s).
+
+   .. automethod:: FieldContext.add_parse_info

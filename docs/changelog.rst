@@ -11,6 +11,7 @@ Unreleased
 * Added :attr:`StructureOptions.length`
 * Added :class:`PseudoMemberEnumMixin`
 * Added lazy and length support to :class:`SwitchField`
+* Add support for caching the read/written raw bytes when using :attr:`StructureOptions.capture_raw`
 
 v0.2.0 (2019-03-23)
 -------------------
