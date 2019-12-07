@@ -200,6 +200,5 @@ class FieldContext:
         self.raw = stream.read(self.length)
 
     def create_subcontext(self, **kwargs):
-        kwargs.setdefault('capture_raw', self.context.capture_raw)
         self.subcontext = self.context.__class__(parent=self.context, parent_field=self, **kwargs)
         return self.subcontext

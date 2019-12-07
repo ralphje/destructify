@@ -25,3 +25,23 @@ class ContextTest(DestructifyTestCase):
         self.assertEqual(1, context.f.x)
         self.assertEqual(None, context.f._)
         self.assertIs(context.f, context.f._root)
+
+
+class SubContextTest(DestructifyTestCase):
+    def test_child_context(self):
+        context = ParsingContext()._add_values({'x': 1})
+        subcontext = context.fields['x'].create_subcontext()
+        self.assertIs(context.fields['x'].subcontext, subcontext)
+
+    def test_child_context_different_class(self):
+        class SubContext(ParsingContext):
+            pass
+
+        context = SubContext()._add_values({'x': 1})
+        subcontext = context.fields['x'].create_subcontext()
+        self.assertIsInstance(subcontext, SubContext)
+
+    def test_child_context_capture_raw(self):
+        context = ParsingContext(capture_raw=True)._add_values({'x': 1})
+        subcontext = context.fields['x'].create_subcontext()
+        self.assertFalse(subcontext.capture_raw)

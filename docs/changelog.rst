@@ -6,6 +6,12 @@ Version history
 Releases
 ========
 
+Unreleased
+----------
+* Added :attr:`StructureOptions.length`
+* Added :class:`PseudoMemberEnumMixin`
+* Added lazy and length support to :class:`SwitchField`
+
 v0.2.0 (2019-03-23)
 -------------------
 This release adds more field types and further improves on existing code. It also extends the documentation
