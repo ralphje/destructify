@@ -205,9 +205,20 @@ class Field:
 
     @property
     def preparsable(self):
-        """Indicates whether this field is preparsable, i.e. the field is lazy and has an absolute offset set."""
+        """Indicates whether this field is preparsable. This is used to indicate that a field can be parsed outside of
+        the normal sequential loading, allowing referencing this field before it is defined.
+
+        The simple implementation is that the field is lazy and has an absolute offset set.
+        """
 
         return self.lazy and self.offset is not None and isinstance(self.offset, int)
+
+    @property
+    def stream_wrappers(self):
+        """Returns an iterable of classes that are required stream wrappers on a :class:`Structure` level.
+        For instance, this may return a list containing a :class:`BitStream` to enable bit-based methods.
+        """
+        return []
 
     def get_initial_value(self, value, context):
         """Returns the initial value given a context. This is used by :meth:`Structure.from_stream` to retrieve the

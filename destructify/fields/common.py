@@ -194,6 +194,8 @@ class TerminatedField(BytesField):
 
 
 class BitField(FixedLengthField):
+    stream_wrappers = [BitStream]
+
     def __init__(self, length, *args, realign=False, **kwargs):
         self.realign = realign
         super().__init__(length, *args, **kwargs)
@@ -446,6 +448,15 @@ class SwitchField(Field):
     @property
     def ctype(self):
         return "switch {}".format(self.name)
+
+    @property
+    def stream_wrappers(self):
+        wrappers = set()
+        for f in self.cases.values():
+            wrappers.update(f.stream_wrappers)
+        if self.other is not None:
+            wrappers.update(self.other.stream_wrappers)
+        return wrappers
 
     def seek_end(self, stream, context, offset):
         switch = self.get_switch(context)

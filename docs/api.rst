@@ -51,6 +51,10 @@ Field
 
    .. autoattribute:: Field.field_context
 
+   .. autoattribute:: Field.preparsable
+
+   .. autoattribute:: Field.stream_wrappers
+
    .. automethod:: Field.with_name
 
    A :class:`Field` also defines the following methods:

@@ -73,6 +73,12 @@ class StructureOptions:
                 return True
         return False
 
+    def get_stream_wrappers(self):
+        wrappers = set()
+        for field in self.fields:
+            wrappers.update(field.stream_wrappers)
+        return wrappers
+
     def initialize_fields(self):
         for field in self.fields:
             field.initialize()

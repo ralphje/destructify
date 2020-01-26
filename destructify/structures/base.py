@@ -164,8 +164,8 @@ class Structure(metaclass=StructureBase):
             stream = CaptureStream(stream)
 
         # wrap the stream in a BitStream to enable bit-based methods
-        if cls._meta.has_field_type(BitField):
-            stream = BitStream(stream)
+        for w in cls._meta.get_stream_wrappers():
+            stream = w(stream)
 
         return stream
 

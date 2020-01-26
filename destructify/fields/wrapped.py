@@ -38,6 +38,10 @@ class WrappedFieldMixin(object):
     def ctype(self):
         return self._ctype or self.base_field.ctype
 
+    @property
+    def stream_wrappers(self):
+        return self.base_field.stream_wrappers
+
 
 class ConstantField(WrappedFieldMixin, Field):
     _take_attributes_from_base = True

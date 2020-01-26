@@ -117,6 +117,13 @@ class ConditionalFieldTest(DestructifyTestCase):
 
         self.assertStructureStreamEqual(b'\x00', ConditionalStructure(value=X(f=0)))
 
+    def test_nested_bitfield(self):
+        class ConditionalBitStructure(Structure):
+            value = ConditionalField(BitField(2), condition=True)
+
+        cs = ConditionalBitStructure.from_bytes(b"\0")
+        self.assertEqual(0, cs.value)
+
 
 class ArrayFieldTest(DestructifyTestCase):
     def test_with_endianness_from_meta(self):
@@ -212,6 +219,14 @@ class ArrayFieldTest(DestructifyTestCase):
 
     def test_len(self):
         self.assertEqual(50, len(ArrayField(IntegerField(2, 'big'), count=25)))
+
+    def test_nested_bitfield(self):
+        # explicit test due to it requiring a stream wrapper
+        class ArrayBitStructure(Structure):
+            value = ArrayField(BitField(2), count=1)
+
+        abs = ArrayBitStructure.from_bytes(b"\0")
+        self.assertEqual([0], abs.value)
 
 
 class EnumFieldTest(DestructifyTestCase):

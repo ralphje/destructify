@@ -533,3 +533,11 @@ class SwitchFieldTest(DestructifyTestCase):
 
     def test_switch_other(self):
         self.assertFieldStreamEqual(b"\x01", 1, SwitchField(cases={}, other=IntegerField(1), switch=1))
+
+    def test_nested_bitfield(self):
+        # explicit test due to it requiring a stream wrapper
+        class TestStructure(Structure):
+            value = SwitchField(cases={1: BitField(1), 2: BitField(1)}, switch=2)
+
+        ts = TestStructure.from_bytes(b"\xff")
+        self.assertEqual(1, ts.value)
